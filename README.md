@@ -1,8 +1,11 @@
-# React + Vite
+# Hesed Ride 🚗
+A smart matching and real-time routing system connecting volunteers with patients for medical transportation.
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## 🏗️ Database Architecture
+Here is the initial Entity-Relationship Diagram (ERD) for the system's core tables:
+![DB Schema](./db-schema.png)
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 💻 Tech Stack
+* **Backend:** FastAPI (Python)
+* **Frontend:** React Native (Expo)
+* **Database:** PostgreSQL
