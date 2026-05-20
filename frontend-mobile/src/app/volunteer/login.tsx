@@ -1,6 +1,6 @@
 // volunteer/login.tsx — התחברות והרשמה למתנדב
-// POST /api/signup — הרשמה
-// POST /api/login — התחברות (לשלב הבא)
+// הלוגיקה של התקשורת עם השרת עברה ל-authService.ts
+// הקובץ הזה אחראי רק על מה שמוצג על המסך
 
 import { useState } from 'react';
 import {
@@ -18,13 +18,13 @@ import { colors } from '@/styles/colors';
 import { common } from '@/styles/common';
 import { typography } from '@/styles/typography';
 
-// כתובת השרת — כשעוברים לשרת אמיתי משנים רק כאן
-const API_URL = 'http://127.0.0.1:8000/api';
+// ייבוא פונקציית ההרשמה מ-authService
+import { registerVolunteer } from '@/services/authService';
 
 export default function VolunteerAuthPage() {
 
   // ======= State =======
-  const [isLogin, setIsLogin] = useState(true); // true = התחברות, false = הרשמה
+  const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -42,7 +42,7 @@ export default function VolunteerAuthPage() {
       setIsLoading(false);
       if (username.toLowerCase() === 'test' && password === '1234') {
         Alert.alert('הצלחה', 'ברוך הבא למערכת HesedRide!');
-        // כשיש דשבורד: router.push('/volunteer/dashboard')
+        // כשיש דשבורד: router.replace('/volunteer/dashboard')
       } else {
         Alert.alert('אופס...', 'אינך רשום במערכת. מעביר לטופס הרשמה.');
         setIsLogin(false);
@@ -50,26 +50,18 @@ export default function VolunteerAuthPage() {
     }, 1500);
   };
 
-  // ======= הרשמה מול הבאקאנד =======
-  // שולחים: { id_number, full_name, password }
-  // מקבלים: { id, full_name, role }
+  // ======= הרשמה — משתמש ב-authService =======
   const handleRegister = async () => {
     if (!username || !password || !fullName) {
       Alert.alert('שגיאה', 'נא למלא תעודת זהות, שם מלא וסיסמה');
       return;
     }
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id_number: username,
-          full_name: fullName,
-          password: password,
-        }),
-      });
 
+    setIsLoading(true);
+
+    try {
+      // קוראים לפונקציה מ-authService במקום לכתוב את הבקשה כאן
+      const response = await registerVolunteer(username, fullName, password);
       const data = await response.json();
       setIsLoading(false);
 
@@ -78,7 +70,6 @@ export default function VolunteerAuthPage() {
           'הצלחה!',
           `נרשמת בהצלחה!\nשם: ${data.full_name}\nתפקיד: ${data.role}`
         );
-        // איפוס שדות ומעבר להתחברות
         setFullName('');
         setPhone('');
         setUsername('');
@@ -90,10 +81,7 @@ export default function VolunteerAuthPage() {
 
     } catch (error) {
       setIsLoading(false);
-      Alert.alert(
-        'שגיאת תקשורת',
-        'לא מצליח להתחבר לשרת. וודאו שהבאקאנד דולק!'
-      );
+      Alert.alert('שגיאת תקשורת', 'לא מצליח להתחבר לשרת. וודאו שהבאקאנד דולק!');
     }
   };
 
@@ -129,7 +117,7 @@ export default function VolunteerAuthPage() {
             </>
           )}
 
-          {/* שדות משותפים להתחברות והרשמה */}
+          {/* שדות משותפים */}
           <TextInput
             style={styles.input}
             placeholder={isLogin ? 'שם משתמש' : 'תעודת זהות'}
