@@ -16,3 +16,12 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class RideRequestCreate(BaseModel):
+    origin: str
+    destination: str
+    ride_date: str
+    ride_time: str
+    passenger_count: int
+    patient_name: str
+    patient_phone: str
