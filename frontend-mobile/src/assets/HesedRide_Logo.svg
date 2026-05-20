@@ -1,0 +1,50 @@
+<svg width="1200" height="400" viewBox="0 0 1200 400" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" stop-color="#2563EB"/>
+    <stop offset="100%" stop-color="#14B8A6"/>
+  </linearGradient>
+</defs>
+
+<!-- Pin -->
+<path d="M170 40
+C95 40 40 100 40 175
+C40 270 170 360 170 360
+C170 360 300 270 300 175
+C300 100 245 40 170 40Z"
+fill="url(#grad)"/>
+
+<!-- Heart cutout -->
+<path d="M170 140
+C155 105 110 105 100 140
+C90 175 120 205 170 240
+C220 205 250 175 240 140
+C230 105 185 105 170 140Z"
+fill="white"/>
+
+<!-- Road -->
+<path d="M165 360
+C160 300 170 250 205 205"
+stroke="#061B4D"
+stroke-width="38"
+stroke-linecap="round"
+fill="none"/>
+
+<!-- Road line -->
+<path d="M175 330
+C172 295 180 255 195 225"
+stroke="white"
+stroke-width="6"
+stroke-dasharray="12 12"
+stroke-linecap="round"
+fill="none"/>
+
+<!-- Text -->
+<text x="360" y="185" font-size="92" font-family="Arial, sans-serif" font-weight="bold" fill="#061B4D">Hesed</text>
+<text x="660" y="185" font-size="92" font-family="Arial, sans-serif" font-weight="bold" fill="#14B8A6">Ride</text>
+
+<!-- Tagline -->
+<text x="360" y="255" font-size="36" font-family="Arial, sans-serif" fill="#061B4D">
+למען האחר. בדרך שלך
+</text>
+</svg>
