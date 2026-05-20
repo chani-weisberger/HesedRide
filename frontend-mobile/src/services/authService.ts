@@ -4,7 +4,8 @@ const API_URL = 'http://127.0.0.1:8000/api';
 export const registerVolunteer = async (
   idNumber: string,
   fullName: string,
-  password: string
+  password: string,
+  phoneNumber: string
 ) => {
   const response = await fetch(`${API_URL}/signup`, {
     method: 'POST',
@@ -13,6 +14,7 @@ export const registerVolunteer = async (
       id_number: idNumber,
       full_name: fullName,
       password: password,
+      phone_number: phoneNumber,
     }),
   });
   return response;

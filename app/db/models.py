@@ -9,6 +9,7 @@ class User(Base):
     id_number = Column(String, unique=True, index=True, nullable=False) # ID NUMBER
     full_name = Column(String, nullable=False)
     password = Column(String, nullable=False)
+    phone_number = Column(String, nullable=False)
     role = Column(String, default="volunteer")
 
 
