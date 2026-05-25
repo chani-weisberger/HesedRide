@@ -26,6 +26,7 @@ def signup(request: SignupRequest, db: Session = Depends(get_db)):
         id_number=request.id_number,
         full_name=request.full_name,
         password=request.password,
+        phone_number=request.phone_number,
         role="volunteer"  # default
     )
 

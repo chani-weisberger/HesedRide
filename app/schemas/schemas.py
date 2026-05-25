@@ -8,6 +8,7 @@ class SignupRequest(BaseModel):
     id_number: str
     full_name: str
     password: str
+    phone_number: str
 
 class UserResponse(BaseModel):
     id:int
