@@ -1,6 +1,5 @@
-from sqlalchemy import Column, Integer, String, Enum
+from sqlalchemy import Column, Integer, String, Enum,DateTime, func
 from app.db.database import Base
-
 class User(Base):
     __tablename__ = "users"
 
@@ -24,3 +23,5 @@ class RideRequest(Base):
     passenger_count = Column(Integer, nullable=False)
     patient_name = Column(String, nullable=False)
     patient_phone = Column(String, nullable=False)
+    status = Column(String, default="pending")
+    created_at = Column(DateTime, default=func.now())

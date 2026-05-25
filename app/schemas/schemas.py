@@ -1,4 +1,6 @@
 from pydantic import BaseModel
+from datetime import datetime
+from typing import List
 
 class LoginRequest(BaseModel):
     id_number: str
@@ -26,3 +28,11 @@ class RideRequestCreate(BaseModel):
     passenger_count: int
     patient_name: str
     patient_phone: str
+
+class RideRequestResponse(RideRequestCreate):
+    id: int
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
