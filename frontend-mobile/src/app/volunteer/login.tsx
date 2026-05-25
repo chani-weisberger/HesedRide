@@ -61,7 +61,7 @@ export default function VolunteerAuthPage() {
 
     try {
       // קוראים לפונקציה מ-authService במקום לכתוב את הבקשה כאן
-      const response = await registerVolunteer(username, fullName, password);
+      const response = await registerVolunteer(username, fullName, password,phone);
       const data = await response.json();
       setIsLoading(false);
 
