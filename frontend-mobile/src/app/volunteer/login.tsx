@@ -66,18 +66,16 @@ export default function VolunteerAuthPage() {
       setIsLoading(false);
 
       if (response.ok) {
-        Alert.alert(
-          'הצלחה!',
-          `נרשמת בהצלחה!\nשם: ${data.full_name}\nתפקיד: ${data.role}`
-        );
-        setFullName('');
-        setPhone('');
-        setUsername('');
-        setPassword('');
-        setIsLogin(true);
-      } else {
-        Alert.alert('אופס...', data.error || 'ההרשמה נכשלה. נסו שוב.');
-      }
+  setFullName('');
+  setPhone('');
+  setUsername('');
+  setPassword('');
+  Alert.alert(
+    '✓ ההרשמה בוצעה בהצלחה!',
+    `ברוך הבא ${data.full_name}!`,
+    [{ text: 'כניסה למערכת', onPress: () => setIsLogin(true) }]
+  );
+}
 
     } catch (error) {
       setIsLoading(false);

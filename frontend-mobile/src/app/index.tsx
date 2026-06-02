@@ -30,7 +30,7 @@ export default function WelcomePage() {
         <View style={styles.btnGroup}>
           <TouchableOpacity
             style={common.buttonPrimary}
-            onPress={() => router.push('/volunteer/login')}
+            onPress={() => router.push('/volunteer/login')}//עובר לדף לוגאין של המתנדב
             activeOpacity={0.8}
           >
             <Text style={common.buttonTextPrimary}>אני מתנדב</Text>
