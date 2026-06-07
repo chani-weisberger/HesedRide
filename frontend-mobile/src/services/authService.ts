@@ -19,3 +19,17 @@ export const registerVolunteer = async (
   });
   return response;
 };
+export const loginVolunteer = async (
+  idNumber: string,
+  password: string
+) => {
+  const response = await fetch(`${API_URL}/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id_number: idNumber,
+      password: password,
+    }),
+  });
+  return response;
+};

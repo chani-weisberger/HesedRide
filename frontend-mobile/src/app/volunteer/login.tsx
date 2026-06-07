@@ -1,7 +1,4 @@
 // volunteer/login.tsx — התחברות והרשמה למתנדב
-// הלוגיקה של התקשורת עם השרת עברה ל-authService.ts
-// הקובץ הזה אחראי רק על מה שמוצג על המסך
-
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,40 +14,42 @@ import ScreenWrapper from '@/components/ScreenWrapper';
 import { colors } from '@/styles/colors';
 import { common } from '@/styles/common';
 import { typography } from '@/styles/typography';
-
-// ייבוא פונקציית ההרשמה מ-authService
-import { registerVolunteer } from '@/services/authService';
+import { registerVolunteer ,loginVolunteer} from '@/services/authService';
 
 export default function VolunteerAuthPage() {
 
-  // ======= State =======
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // ======= התחברות (זמנית — סימולציה) =======
-  const handleLogin = () => {
-    if (!username || !password) {
-      Alert.alert('שגיאה', 'נא למלא שם משתמש וסיסמה');
-      return;
-    }
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      if (username.toLowerCase() === 'test' && password === '1234') {
-        Alert.alert('הצלחה', 'ברוך הבא למערכת HesedRide!');
-        // כשיש דשבורד: router.replace('/volunteer/dashboard')
-      } else {
-        Alert.alert('אופס...', 'אינך רשום במערכת. מעביר לטופס הרשמה.');
-        setIsLogin(false);
-      }
-    }, 1500);
-  };
+ const handleLogin = async () => {
+  if (!username || !password) {
+    Alert.alert('שגיאה', 'נא למלא תעודת זהות וסיסמה');
+    return;
+  }
 
-  // ======= הרשמה — משתמש ב-authService =======
+  setIsLoading(true);
+
+  try {
+    const response = await loginVolunteer(username, password);
+    const data = await response.json();
+    setIsLoading(false);
+
+    if (response.ok) {
+      router.replace('/volunteer/volunteer-type' as any);
+    } else {
+      Alert.alert('שגיאה', data.detail || 'תעודת זהות או סיסמה שגויים');
+    }
+
+  } catch (error) {
+    setIsLoading(false);
+    Alert.alert('שגיאת תקשורת', 'לא מצליח להתחבר לשרת');
+  }
+};
+
   const handleRegister = async () => {
     if (!username || !password || !fullName) {
       Alert.alert('שגיאה', 'נא למלא תעודת זהות, שם מלא וסיסמה');
@@ -60,22 +59,23 @@ export default function VolunteerAuthPage() {
     setIsLoading(true);
 
     try {
-      // קוראים לפונקציה מ-authService במקום לכתוב את הבקשה כאן
-      const response = await registerVolunteer(username, fullName, password, phone);
+      const response = await registerVolunteer(username, fullName, password, phoneNumber);
       const data = await response.json();
       setIsLoading(false);
 
       if (response.ok) {
-  setFullName('');
-  setPhone('');
-  setUsername('');
-  setPassword('');
-  Alert.alert(
-    '✓ ההרשמה בוצעה בהצלחה!',
-    `ברוך הבא ${data.full_name}!`,
-    [{ text: 'כניסה למערכת', onPress: () => setIsLogin(true) }]
-  );
-}
+        setFullName('');
+        setPhoneNumber('');
+        setUsername('');
+        setPassword('');
+        Alert.alert(
+          '✓ ההרשמה בוצעה בהצלחה!',
+          `ברוך הבא ${data.full_name}!`,
+          [{ text: 'כניסה למערכת', onPress: () => setIsLogin(true) }]
+        );
+      } else {
+        Alert.alert('אופס...', data.error || 'ההרשמה נכשלה. נסו שוב.');
+      }
 
     } catch (error) {
       setIsLoading(false);
@@ -83,7 +83,6 @@ export default function VolunteerAuthPage() {
     }
   };
 
-  // ======= ממשק =======
   return (
     <ScreenWrapper scrollable>
       <View style={styles.container}>
@@ -94,7 +93,6 @@ export default function VolunteerAuthPage() {
 
         <View style={common.card}>
 
-          {/* שדות הרשמה — מופיעים רק במצב הרשמה */}
           {!isLogin && (
             <>
               <TextInput
@@ -108,17 +106,16 @@ export default function VolunteerAuthPage() {
                 style={styles.input}
                 placeholder="מספר טלפון (אופציונלי)"
                 keyboardType="phone-pad"
-                value={phone}
-                onChangeText={setPhone}
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
                 textAlign="right"
               />
             </>
           )}
 
-          {/* שדות משותפים */}
           <TextInput
             style={styles.input}
-            placeholder={isLogin ? 'שם משתמש' : 'תעודת זהות'}
+            placeholder="תעודת זהות"
             value={username}
             onChangeText={setUsername}
             textAlign="right"
@@ -134,7 +131,6 @@ export default function VolunteerAuthPage() {
             textAlign="right"
           />
 
-          {/* כפתור ראשי */}
           <TouchableOpacity
             style={common.buttonPrimary}
             onPress={isLogin ? handleLogin : handleRegister}
@@ -149,7 +145,6 @@ export default function VolunteerAuthPage() {
             }
           </TouchableOpacity>
 
-          {/* מעבר בין התחברות להרשמה */}
           <TouchableOpacity
             style={styles.switchBtn}
             onPress={() => setIsLogin(!isLogin)}
@@ -163,7 +158,6 @@ export default function VolunteerAuthPage() {
 
         </View>
 
-        {/* חזרה לדף הפתיחה */}
         <TouchableOpacity
           style={styles.backBtn}
           onPress={() => router.back()}
@@ -177,16 +171,8 @@ export default function VolunteerAuthPage() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 24,
-    justifyContent: 'center',
-  },
-  title: {
-    ...typography.h2,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
+  container: { flex: 1, padding: 24, justifyContent: 'center' },
+  title: { ...typography.h2, textAlign: 'center', marginBottom: 24 },
   input: {
     height: 50,
     backgroundColor: '#f9f9f9',
@@ -197,21 +183,8 @@ const styles = StyleSheet.create({
     borderColor: colors.inputBorder,
     fontSize: 16,
   },
-  switchBtn: {
-    marginTop: 16,
-    alignItems: 'center',
-  },
-  switchText: {
-    color: colors.primaryBlue,
-    fontSize: 14,
-  },
-  backBtn: {
-    alignItems: 'center',
-    marginTop: 20,
-    padding: 12,
-  },
-  backText: {
-    color: colors.primaryBlue,
-    fontSize: 14,
-  },
+  switchBtn: { marginTop: 16, alignItems: 'center' },
+  switchText: { color: colors.primaryBlue, fontSize: 14 },
+  backBtn: { alignItems: 'center', marginTop: 20, padding: 12 },
+  backText: { color: colors.primaryBlue, fontSize: 14 },
 });
