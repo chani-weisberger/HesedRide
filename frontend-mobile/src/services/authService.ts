@@ -6,7 +6,6 @@ export const registerVolunteer = async (
   fullName: string,
   password: string,
   phoneNumber: string
-
 ) => {
   const response = await fetch(`${API_URL}/signup`, {
     method: 'POST',
@@ -16,7 +15,20 @@ export const registerVolunteer = async (
       full_name: fullName,
       password: password,
       phone_number: phoneNumber
-
+    }),
+  });
+  return response;
+};
+export const loginVolunteer = async (
+  idNumber: string,
+  password: string
+) => {
+  const response = await fetch(`${API_URL}/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id_number: idNumber,
+      password: password,
     }),
   });
   return response;
