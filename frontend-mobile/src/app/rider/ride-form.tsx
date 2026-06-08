@@ -1,9 +1,6 @@
 // ride-form.tsx — טופס בקשת נסיעה מיידית
-// תאריך ושעה מתמלאים אוטומטית בעת השליחה
-
 import { useState } from 'react';
 import {
-  Alert,
   StyleSheet,
   Text,
   TextInput,
@@ -20,21 +17,23 @@ import { validateRideForm } from '@/utils/validation';
 
 export default function RideFormPage() {
 
-  // ======= State — שדות הטופס =======
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
   const [passengerCount, setPassengerCount] = useState(1);
   const [patientName, setPatientName] = useState('');
   const [patientPhone, setPatientPhone] = useState('');
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
 
-  // ======= מעבר לדף סיכום =======
   const handleNext = () => {
-    if (!validateRideForm(origin, destination, patientName, patientPhone)) return;
+    const newErrors = validateRideForm(origin, destination, patientName, patientPhone);
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
 
-    // תאריך ושעה נוכחיים — מתמלאים אוטומטית
     const now = new Date();
-    const rideDate = now.toISOString().split('T')[0];   // 2026-05-20
-    const rideTime = now.toTimeString().split(' ')[0];  // 14:30:00
+    const rideDate = now.toISOString().split('T')[0];
+    const rideTime = now.toTimeString().split(' ')[0];
 
     const rideData: RideRequest = {
       origin,
@@ -46,43 +45,41 @@ export default function RideFormPage() {
       patient_phone: patientPhone,
     };
 
-    // מעביר את הנתונים לדף הסיכום
     router.push({
       pathname: '/rider/ride-summary' as any,
       params: { rideData: JSON.stringify(rideData) },
     });
   };
 
-  // ======= ממשק =======
   return (
     <ScreenWrapper scrollable>
       <View style={styles.container}>
 
-        {/* כותרת */}
         <Text style={styles.title}>הזמנה מיידית</Text>
         <View style={common.divider} />
 
-        {/* פרטי הנסיעה */}
         <View style={common.card}>
           <Text style={styles.sectionTitle}>פרטי הנסיעה</Text>
 
           <Text style={styles.label}>כתובת מוצא</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.origin ? styles.inputError : null]}
             placeholder="לדוגמה: רחוב הרצל 10, תל אביב"
             value={origin}
-            onChangeText={setOrigin}
+            onChangeText={(text) => { setOrigin(text); setErrors(e => ({...e, origin: ''})); }}
             textAlign="right"
           />
+          {errors.origin ? <Text style={styles.errorText}>{errors.origin}</Text> : null}
 
           <Text style={styles.label}>כתובת יעד</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.destination ? styles.inputError : null]}
             placeholder="לדוגמה: בית חולים איכילוב"
             value={destination}
-            onChangeText={setDestination}
+            onChangeText={(text) => { setDestination(text); setErrors(e => ({...e, destination: ''})); }}
             textAlign="right"
           />
+          {errors.destination ? <Text style={styles.errorText}>{errors.destination}</Text> : null}
 
           <Text style={styles.label}>מספר נוסעים</Text>
           <View style={styles.counterRow}>
@@ -92,9 +89,7 @@ export default function RideFormPage() {
             >
               <Text style={styles.counterBtnText}>+</Text>
             </TouchableOpacity>
-
             <Text style={styles.counterValue}>{passengerCount}</Text>
-
             <TouchableOpacity
               style={styles.counterBtn}
               onPress={() => setPassengerCount(Math.max(1, passengerCount - 1))}
@@ -104,31 +99,31 @@ export default function RideFormPage() {
           </View>
         </View>
 
-        {/* פרטי הנוסע */}
         <View style={common.card}>
           <Text style={styles.sectionTitle}>פרטי הנוסע</Text>
 
           <Text style={styles.label}>שם מלא</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.patientName ? styles.inputError : null]}
             placeholder="ישראל ישראלי"
             value={patientName}
-            onChangeText={setPatientName}
+            onChangeText={(text) => { setPatientName(text); setErrors(e => ({...e, patientName: ''})); }}
             textAlign="right"
           />
+          {errors.patientName ? <Text style={styles.errorText}>{errors.patientName}</Text> : null}
 
           <Text style={styles.label}>מספר טלפון</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.patientPhone ? styles.inputError : null]}
             placeholder="050-1234567"
             value={patientPhone}
-            onChangeText={setPatientPhone}
+            onChangeText={(text) => { setPatientPhone(text); setErrors(e => ({...e, patientPhone: ''})); }}
             textAlign="right"
             keyboardType="phone-pad"
           />
+          {errors.patientPhone ? <Text style={styles.errorText}>{errors.patientPhone}</Text> : null}
         </View>
 
-        {/* כפתורים */}
         <View style={styles.btnGroup}>
           <TouchableOpacity
             style={common.buttonPrimary}
@@ -152,68 +147,27 @@ export default function RideFormPage() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 24,
-    gap: 16,
-  },
-  title: {
-    ...typography.h2,
-    textAlign: 'center',
-  },
-  sectionTitle: {
-    ...typography.h3,
-    marginBottom: 16,
-  },
-  label: {
-    ...typography.label,
-    marginBottom: 6,
-    textAlign: 'right',
-  },
+  container: { padding: 24, gap: 16 },
+  title: { ...typography.h2, textAlign: 'center' },
+  sectionTitle: { ...typography.h3, marginBottom: 16 },
+  label: { ...typography.label, marginBottom: 6, textAlign: 'right' },
   input: {
     height: 50,
     backgroundColor: '#f9f9f9',
     borderRadius: 10,
     paddingHorizontal: 16,
-    marginBottom: 14,
+    marginBottom: 4,
     borderWidth: 1,
     borderColor: colors.inputBorder,
     fontSize: 16,
   },
-  counterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 24,
-    marginBottom: 14,
-  },
-  counterBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primaryBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  counterBtnText: {
-    color: colors.white,
-    fontSize: 22,
-    fontWeight: '600',
-  },
-  counterValue: {
-    ...typography.h2,
-    minWidth: 40,
-    textAlign: 'center',
-  },
-  btnGroup: {
-    gap: 12,
-    marginTop: 8,
-  },
-  backBtn: {
-    alignItems: 'center',
-    padding: 12,
-  },
-  backText: {
-    color: colors.primaryBlue,
-    fontSize: 14,
-  },
+  inputError: { borderColor: 'red', borderWidth: 2 },
+  errorText: { color: 'red', fontSize: 12, textAlign: 'right', marginBottom: 10 },
+  counterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24, marginBottom: 14 },
+  counterBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primaryBlue, alignItems: 'center', justifyContent: 'center' },
+  counterBtnText: { color: colors.white, fontSize: 22, fontWeight: '600' },
+  counterValue: { ...typography.h2, minWidth: 40, textAlign: 'center' },
+  btnGroup: { gap: 12, marginTop: 8 },
+  backBtn: { alignItems: 'center', padding: 12 },
+  backText: { color: colors.primaryBlue, fontSize: 14 },
 });
