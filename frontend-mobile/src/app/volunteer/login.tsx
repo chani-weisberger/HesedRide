@@ -15,7 +15,7 @@ import { colors } from '@/styles/colors';
 import { common } from '@/styles/common';
 import { typography } from '@/styles/typography';
 import { registerVolunteer ,loginVolunteer} from '@/services/authService';
-
+import * as SecureStore from 'expo-secure-store';
 export default function VolunteerAuthPage() {
 
   const [isLogin, setIsLogin] = useState(true);
@@ -39,8 +39,11 @@ export default function VolunteerAuthPage() {
     setIsLoading(false);
 
     if (response.ok) {
-      router.replace('/volunteer/volunteer-type' as any);
-    } else {
+  if (data.token) {
+    await SecureStore.setItemAsync('userToken', data.token);
+  }
+  router.replace('/volunteer/volunteer-type' as any);
+} else {
       Alert.alert('שגיאה', data.detail || 'תעודת זהות או סיסמה שגויים');
     }
 
