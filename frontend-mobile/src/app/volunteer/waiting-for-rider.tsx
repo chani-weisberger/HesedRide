@@ -13,12 +13,12 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // 🌟 מעודכן ל-AsyncStorage
 
 export default function VolunteerWaitingForRiderPage() {
   const [isCanceling, setIsCanceling] = useState(false);
   
-  // 1. 🌟 מקבלים את ה-ID האמיתי של הנסיעה שנשלח ממסך הסיכום
+  // מקבלים את ה-ID האמיתי של הנסיעה שנשלח ממסך הסיכום
   const { volunteer_ride_id } = useLocalSearchParams<{ volunteer_ride_id: string }>();
 
   useEffect(() => {
@@ -28,10 +28,10 @@ export default function VolunteerWaitingForRiderPage() {
       return;
     }
 
-    // 2. 🔄 בדיקה אוטומטית (Polling) מול רחלי כל 4 שניות
+    // בדיקה אוטומטית (Polling) מול רחלי כל 4 שניות
     const checkRideStatus = async () => {
       try {
-        const token = await SecureStore.getItemAsync('userToken');
+        const token = await AsyncStorage.getItem('userToken');
         
         const response = await fetch(`http://127.0.0.1:8000/api/rides/${volunteer_ride_id}/status`, {
           headers: {
@@ -44,7 +44,6 @@ export default function VolunteerWaitingForRiderPage() {
           // אם הנוסע אישר והסטטוס השתנה ל-approved
           if (data.status === 'approved') {
              clearInterval(intervalId);
-             // מטיסים את המתנדב למפה או למסך סיום החיפוש בהצלחה
              Alert.alert('🎉 הנוסע אישר!', 'נמצאה התאמה והנוסע אישר את הנסיעה.', [
                { text: 'מעולה!', onPress: () => router.replace('/volunteer/volunteer-type') }
              ]);
@@ -69,7 +68,7 @@ export default function VolunteerWaitingForRiderPage() {
 
     setIsCanceling(true);
     try {
-      const token = await SecureStore.getItemAsync('userToken');
+      const token = await AsyncStorage.getItem('userToken');
       
       const response = await fetch(`http://127.0.0.1:8000/api/rides/volunteer/cancel/${volunteer_ride_id}`, {
         method: 'POST',

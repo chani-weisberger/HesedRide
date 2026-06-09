@@ -14,7 +14,7 @@ import {
     View,
 } from 'react-native';
 import { VolunteerRideRequest } from '@/services/rideService';
-import * as SecureStore from 'expo-secure-store'; // 🌟 ייבוא הזיכרון המאובטח
+import AsyncStorage from '@react-native-async-storage/async-storage'; // 🌟 זיכרון שעובד מעולה גם בדפדפן וגם בטלפון
 
 export default function VolunteerGlobalRideSummaryPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -31,8 +31,8 @@ export default function VolunteerGlobalRideSummaryPage() {
     setIsLoading(true);
 
     try {
-      // 1. 🔑 שולפים מהזיכרון המאובטח את הטוקן שללי שמרה בלוגין
-      const token = await SecureStore.getItemAsync('userToken');
+      // 1. 🔑 שולפים מהזיכרון את הטוקן שללי שמרה בלוגין
+      const token = await AsyncStorage.getItem('userToken');
 
       const volunteerRide: VolunteerRideRequest = {
         source_location: ride.origin,
@@ -69,7 +69,7 @@ export default function VolunteerGlobalRideSummaryPage() {
           });
         } else {
           // ⏳ תרחיש 2: לא נמצאה התאמה מיידית, הנסיעה בסטטוס pending
-          // 🌟 התיקון של רחלי: מנווטים ישר למסך ההמתנה עם הגלגל ומעבירים לו את ה-ID האמיתי!
+          // מנווטים למסך ההמתנה עם הגלגל ומעבירים לו את ה-ID האמיתי של הנסיעה
           router.replace({
             pathname: '/volunteer/waiting-for-rider',
             params: { volunteer_ride_id: data.volunteer_ride_id }
