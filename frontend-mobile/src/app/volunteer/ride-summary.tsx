@@ -13,7 +13,8 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { createVolunteerRide, VolunteerRideRequest } from '@/services/rideService';
+import { VolunteerRideRequest } from '@/services/rideService';
+import * as SecureStore from 'expo-secure-store'; // 🌟 ייבוא הזיכרון המאובטח
 
 export default function VolunteerGlobalRideSummaryPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -30,6 +31,9 @@ export default function VolunteerGlobalRideSummaryPage() {
     setIsLoading(true);
 
     try {
+      // 1. 🔑 שולפים מהזיכרון המאובטח את הטוקן שללי שמרה בלוגין
+      const token = await SecureStore.getItemAsync('userToken');
+
       const volunteerRide: VolunteerRideRequest = {
         source_location: ride.origin,
         destination_location: ride.destination,
@@ -37,15 +41,22 @@ export default function VolunteerGlobalRideSummaryPage() {
         grace_minutes: Number(ride.hesed_minutes),
       };
 
-      // שליחת הבקשה לשרת לנתיב שחני הגדירה
-      const response = await createVolunteerRide(volunteerRide);
+      // 2. 🌐 שולחים את הבקשה לרחלי, ומצרפים את ה-Token ב-Headers
+      const response = await fetch('http://127.0.0.1:8000/api/rides/volunteer/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // 🔥 שורת הקסם של רחלי!
+        },
+        body: JSON.stringify(volunteerRide)
+      });
+
       const data = await response.json();
       setIsLoading(false);
 
       if (response.ok) {
         if (data.match_found) {
-          // 🚗 תרחיש 2 של חני: נמצאה התאמה מיידית!
-          // מעבירים את כל פרטי הנוסע מתוך ה-match_details למסך המעוצב החדש (משימה 2)
+          // 🚗 תרחיש 1: נמצאה התאמה מיידית! מטיסים למסך הבא
           router.replace({
             pathname: '/volunteer/match-found',
             params: {
@@ -57,20 +68,20 @@ export default function VolunteerGlobalRideSummaryPage() {
             }
           });
         } else {
-          // ❌ תרחיש 1 של חני: לא נמצאה התאמה, הנסיעה נשמרה בסטטוס pending
-          // מציגים את ההודעה המדויקת מהפרוטוקול של חני ומחזירים את המתנדב למסך בחירת סוג ההתנדבות
-          Alert.alert(
-            '✅ הנסיעה נרשמה!',
-            'נסיעת המתנדב נרשמה בהצלחה. לא נמצא נוסע מתאים כרגע.',
-            [{ text: 'אוקי', onPress: () => router.replace('/volunteer/volunteer-type') }]
-          );
+          // ⏳ תרחיש 2: לא נמצאה התאמה מיידית, הנסיעה בסטטוס pending
+          // 🌟 התיקון של רחלי: מנווטים ישר למסך ההמתנה עם הגלגל ומעבירים לו את ה-ID האמיתי!
+          router.replace({
+            pathname: '/volunteer/waiting-for-rider',
+            params: { volunteer_ride_id: data.volunteer_ride_id }
+          });
         }
       } else {
-        Alert.alert('שגיאה', data.detail || 'משהו השתבש');
+        Alert.alert('שגיאה מהשרת', data.detail || 'משהו השתבש, אולי בעיית הרשאה');
       }
 
     } catch (error) {
       setIsLoading(false);
+      console.error("שגיאת תקשורת מלאה:", error);
       Alert.alert('שגיאת תקשורת', 'לא מצליח להתחבר לשרת');
     }
   };
