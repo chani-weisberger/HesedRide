@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from app.db.models import VolunteerRide, RideRequest
 
-
+#def generate_waze_link(v_ride: VolunteerRide, r_request: RideRequest) -> str: !!!!!!!!!!!!!!!!!!!!!
 #def get_travel_time_minutes(origin: str, destination: str) -> int !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 def calculate_total_deviation(v_ride: VolunteerRide, r_request: RideRequest) -> int:
@@ -41,12 +41,7 @@ def find_best_match(v_ride: VolunteerRide, db: Session):
 
         # Is the deviation less than or equal to the minutes of grace that the volunteer defined?
         if deviation_minutes <= v_ride.grace_minutes:
-            # Step 3: Successful matchmaking! Updating statuses in the Database
-            request.status = "matched"
-            v_ride.status = "matched"
-
-            # Final saving in the database and releasing the locks to the other volunteers in the system
-            db.commit()
+            
             return request  # Successfully returning the passenger you robbed
 
     return None  # If we've gone through everyone and no one fits within the grace period

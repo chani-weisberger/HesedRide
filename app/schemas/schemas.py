@@ -36,3 +36,22 @@ class RideRequestResponse(RideRequestCreate):
 
     class Config:
         from_attributes = True
+
+
+class VolunteerRideCreate(BaseModel):
+    source_location: str
+    destination_location: str
+    available_seats: int
+    grace_minutes: int
+
+class VolunteerRideResponse(VolunteerRideCreate):
+    id: int
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class RideConfirmRequest(BaseModel):
+    volunteer_ride_id: int
+    ride_request_id: int
