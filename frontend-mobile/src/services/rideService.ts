@@ -23,3 +23,17 @@ export const createRide = async (rideData: RideRequest) => {
   });
   return response;
 };
+export type VolunteerRideRequest = {
+  source_location: string;
+  destination_location: string;
+  available_seats: number;
+  grace_minutes: number;
+};
+export const createVolunteerRide = async (rideData: VolunteerRideRequest) => {
+  const response = await fetch(`${API_URL}/rides/volunteer/create`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(rideData),
+  });
+  return response;
+};
