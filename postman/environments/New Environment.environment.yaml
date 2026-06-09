@@ -1,0 +1,13 @@
+name: New Environment
+values:
+  - key: base_url
+    value: 'http://127.0.0.1:8000'
+  - key: user_id
+    value: ''
+  - key: user_role
+    value: ''
+  - key: ride_request_id
+    value: ''
+  - key: volunteer_ride_id
+    value: ''
+color: 0

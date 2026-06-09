@@ -1,0 +1,17 @@
+$kind: http-request
+name: Health Check
+method: GET
+url: '{{base_url}}/'
+order: 1000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status code is 200", function () {
+          pm.response.to.have.status(200);
+      });
+
+      pm.test("Server is running", function () {
+          var jsonData = pm.response.json();
+          pm.expect(jsonData).to.have.property("message");
+      });

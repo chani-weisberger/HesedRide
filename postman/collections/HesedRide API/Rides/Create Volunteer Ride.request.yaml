@@ -1,0 +1,57 @@
+$kind: http-request
+name: Create Volunteer Ride
+method: POST
+url: '{{base_url}}/api/rides/volunteer/create'
+order: 2000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "source_location": "תל אביב, רוטשילד 50",
+      "destination_location": "בית חולים איכילוב",
+      "available_seats": 2,
+      "grace_minutes": 15
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status code is 200", function () {
+          pm.response.to.have.status(200);
+      });
+
+      pm.test("Response has volunteer_ride_id", function () {
+          var jsonData = pm.response.json();
+          pm.expect(jsonData).to.have.property("volunteer_ride_id");
+      });
+
+      pm.test("Response has match_found boolean", function () {
+          var jsonData = pm.response.json();
+          pm.expect(jsonData).to.have.property("match_found");
+          pm.expect(jsonData.match_found).to.be.a("boolean");
+      });
+
+      pm.test("Response has status success", function () {
+          var jsonData = pm.response.json();
+          pm.expect(jsonData.status).to.eql("success");
+      });
+
+      pm.test("If match found, match_details has required fields", function () {
+          var jsonData = pm.response.json();
+          if (jsonData.match_found) {
+              pm.expect(jsonData.match_details).to.have.property("ride_request_id");
+              pm.expect(jsonData.match_details).to.have.property("passenger_name");
+              pm.expect(jsonData.match_details).to.have.property("origin");
+              pm.expect(jsonData.match_details).to.have.property("destination");
+              pm.expect(jsonData.match_details).to.have.property("navigation_url");
+              pm.environment.set("ride_request_id", jsonData.match_details.ride_request_id);
+          }
+      });
+
+      pm.test("Save volunteer_ride_id to environment", function () {
+          var jsonData = pm.response.json();
+          pm.environment.set("volunteer_ride_id", jsonData.volunteer_ride_id);
+      });

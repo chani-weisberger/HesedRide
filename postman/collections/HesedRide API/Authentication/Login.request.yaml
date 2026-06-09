@@ -1,0 +1,35 @@
+$kind: http-request
+name: Login
+method: POST
+url: '{{base_url}}/api/login'
+order: 3000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "id_number": "123456789",
+      "password": "password123"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status code is 200", function () {
+          pm.response.to.have.status(200);
+      });
+
+      pm.test("Response has id, full_name, role", function () {
+          var jsonData = pm.response.json();
+          pm.expect(jsonData).to.have.property("id");
+          pm.expect(jsonData).to.have.property("full_name");
+          pm.expect(jsonData).to.have.property("role");
+      });
+
+      pm.test("Save user_id and user_role to environment", function () {
+          var jsonData = pm.response.json();
+          pm.environment.set("user_id", jsonData.id);
+          pm.environment.set("user_role", jsonData.role);
+      });

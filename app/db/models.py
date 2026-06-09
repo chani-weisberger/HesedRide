@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Enum,DateTime, func
+from sqlalchemy import Column, Integer, String,DateTime, func,ForeignKey
+from sqlalchemy.orm import relationship
 from app.db.database import Base
 class User(Base):
     __tablename__ = "users"
@@ -36,3 +37,5 @@ class VolunteerRide(Base):
     grace_minutes = Column(Integer, nullable=False)
     status = Column(String, default="pending")  # pending, proposed, confirmed
     created_at = Column(DateTime, default=func.now())
+    matched_request_id = Column(Integer, ForeignKey("ride_requests.id"), nullable=True)
+    matched_request = relationship("RideRequest", backref="matched_volunteer")

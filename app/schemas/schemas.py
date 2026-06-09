@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import List
+from typing import Optional, Dict, Any
 
 class LoginRequest(BaseModel):
     id_number: str
@@ -48,6 +49,8 @@ class VolunteerRideResponse(VolunteerRideCreate):
     id: int
     status: str
     created_at: datetime
+    match_found: Optional[bool] = None
+    match_details: Optional[Dict[str, Any]] = None
 
     class Config:
         from_attributes = True

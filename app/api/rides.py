@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.utils import find_best_match, generate_waze_link
+from app.utils import find_best_match
 
-from app import db
 from app.db.database import get_db
 from app.db import models
 from app.schemas import schemas
+from app.services.maps_service import generate_google_maps_link
 
 # Initialize the router for ride-related endpoints
 router = APIRouter(prefix="/api/rides", tags=["Rides"])
@@ -48,6 +48,8 @@ def create_volunteer_ride(volunteer_data: schemas.VolunteerRideCreate, db: Sessi
             new_volunteer_ride.status = "proposed"
             db.commit()
 
+            navigation_link = generate_google_maps_link(new_volunteer_ride, matched_passenger)
+
             return {
                 "status": "success",
                 "message": "נסיעת המתנדב נרשמה ונמצאה הצעה להתאמה. ממתין לאישור הצדדים.",
@@ -57,7 +59,8 @@ def create_volunteer_ride(volunteer_data: schemas.VolunteerRideCreate, db: Sessi
                     "ride_request_id": matched_passenger.id,
                     "passenger_name": matched_passenger.patient_name,
                     "origin": matched_passenger.origin,
-                    "destination": matched_passenger.destination
+                    "destination": matched_passenger.destination,
+                    "navigation_url": navigation_link
                 }
             }
 
@@ -90,7 +93,7 @@ def confirm_ride_match(confirm_data: schemas.RideConfirmRequest, db: Session = D
         db.commit()
 
         # 3. Calling the helper function that creates the link to Waze
-        waze_link = generate_waze_link(volunteer_ride, ride_request)
+        waze_link = generate_google_maps_link(volunteer_ride, ride_request)
 
         # 4. Returning a reply to the front
         return {
