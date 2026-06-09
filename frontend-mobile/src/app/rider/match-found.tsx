@@ -1,12 +1,14 @@
-// match-found.tsx — דף אישור התאמה
-// מוצג כשנמצא מתנדב לנסיעה
-
+// rider/match-found.tsx — דף אישור התאמה וניווט (צד נוסע)
+// משלב את העיצוב של ללי + הפרוטוקול של חני ורחלי לגוגל מאפס
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
   Linking,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import ScreenWrapper from '@/components/ScreenWrapper';
@@ -15,66 +17,107 @@ import { common } from '@/styles/common';
 import { typography } from '@/styles/typography';
 
 export default function MatchFoundPage() {
+  const [isLoading, setIsLoading] = useState(false);
 
-  const { rideId } = useLocalSearchParams<{ rideId: string }>();
+  // 1. שליפת הפרמטרים הדינמיים שהשרת של חני מעביר (מזהים + פרטי מתנדב)
+  const params = useLocalSearchParams<{ 
+    volunteer_ride_id: string; 
+    ride_request_id: string;
+    volunteer_name?: string;
+    volunteer_phone?: string;
+    volunteer_car?: string;
+  }>();
 
-  // ======= פתיחת Waze =======
-  // Linking — מאפשר לפתוח אפליקציות חיצוניות
-  const openWaze = (address: string) => {
-    const url = `waze://?q=${encodeURIComponent(address)}&navigate=yes`;
-    Linking.openURL(url).catch(() => {
-      // אם Waze לא מותקן — פותח במפות גוגל
-      Linking.openURL(
-        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
-      );
-    });
+  // שימוש בנתונים של חני, עם גיבוי לנתונים המקוריים של ללי
+  const volunteerName = params.volunteer_name || 'ישראל ישראלי';
+  const volunteerPhone = params.volunteer_phone || '050-1234567';
+  const volunteerCar = params.volunteer_car || 'טויוטה קורולה לבנה';
+
+  // 2. פונקציית האישור הסופית של חני + פתיחת גוגל מאפס לפי בקשת רחלי
+  const handleConfirmAndNavigate = async () => {
+    setIsLoading(true);
+    
+    try {
+      // כאן בעתיד תתבצע בקשת ה-POST לנתיב של חני: http://127.0.0.1:8000/api/rides/confirm
+      // עם הנתונים: volunteer_ride_id ו-ride_request_id
+      
+      setTimeout(() => {
+        setIsLoading(false);
+        
+        // הלינק של גוגל מאפס שיגיע מחני (כאן שמנו לינק לבדיקה)
+        const googleMapsUrl = "https://maps.google.com"; 
+
+        Alert.alert(
+          'הנסיעה אושרה סופית! 🎉',
+          'ההודעה נשלחה למתנדב והוא בדרך אליך.',
+          [
+            { 
+              text: 'פתח ניווט ב-Google Maps 🗺️', 
+              onPress: () => Linking.openURL(googleMapsUrl).catch(() => alert('לא ניתן לפתוח את המפה'))
+            },
+            { 
+              text: 'סגור', 
+              onPress: () => router.replace('/') 
+            }
+          ]
+        );
+      }, 1200);
+
+    } catch (error) {
+      setIsLoading(false);
+      Alert.alert('שגיאה', 'לא ניתן לאשר את הנסיעה כרגע');
+    }
   };
 
-  // ======= ממשק =======
   return (
     <ScreenWrapper scrollable>
       <View style={styles.container}>
 
-        {/* אייקון הצלחה */}
+        {/* האייקון הירוק המהמם של ללי */}
         <View style={styles.successIcon}>
           <Text style={styles.checkmark}>✓</Text>
         </View>
 
         <Text style={styles.title}>נמצא מתנדב!</Text>
-        <Text style={styles.subtitle}>המתנדב בדרך אליך</Text>
+        <Text style={styles.subtitle}>המתנדב ממתין לאישורך כדי לצאת לדרך</Text>
 
         <View style={common.divider} />
 
-        {/* פרטי המתנדב */}
+        {/* כרטיס פרטי המתנדב של ללי - מעודכן לנתונים דינמיים */}
         <View style={common.card}>
           <Text style={styles.sectionTitle}>פרטי המתנדב</Text>
 
           <View style={styles.row}>
-            <Text style={styles.rowValue}>ישראל ישראלי</Text>
+            <Text style={styles.rowValue}>{volunteerName}</Text>
             <Text style={styles.rowLabel}>שם</Text>
           </View>
 
           <View style={styles.row}>
-            <Text style={styles.rowValue}>050-1234567</Text>
+            <Text style={styles.rowValue}>{volunteerPhone}</Text>
             <Text style={styles.rowLabel}>טלפון</Text>
           </View>
 
           <View style={styles.row}>
-            <Text style={styles.rowValue}>טויוטה קורולה לבנה</Text>
+            <Text style={styles.rowValue}>{volunteerCar}</Text>
             <Text style={styles.rowLabel}>רכב</Text>
           </View>
         </View>
 
-        {/* כפתור פתיחת Waze */}
+        {/* הכפתור המרכזי המשודרג: אישור סופי ופתיחת מפות גוגל של רחלי */}
         <TouchableOpacity
-          style={styles.wazeBtn}
-          onPress={() => openWaze('בית חולים איכילוב, תל אביב')}
+          style={styles.confirmBtn}
+          onPress={handleConfirmAndNavigate}
+          disabled={isLoading}
           activeOpacity={0.8}
         >
-          <Text style={styles.wazeBtnText}>🗺️ פתח ב-Waze</Text>
+          {isLoading ? (
+            <ActivityIndicator color={colors.white} />
+          ) : (
+            <Text style={styles.confirmBtnText}>✨ אשר נסיעה ופתח גוגל מאפס</Text>
+          )}
         </TouchableOpacity>
 
-        {/* חזרה לדף הבית */}
+        {/* חזרה לדף הבית של ללי */}
         <TouchableOpacity
           style={styles.homeBtn}
           onPress={() => router.replace('/')}
@@ -87,6 +130,7 @@ export default function MatchFoundPage() {
   );
 }
 
+// שמרנו על כל הסטייל המקורי והמדויק של ללי!
 const styles = StyleSheet.create({
   container: {
     padding: 24,
@@ -139,24 +183,26 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '500',
   },
-  wazeBtn: {
+  // עדכון קטן לעיצוב הכפתור כדי שיתאים לגוגל מאפס במקום וויז
+  confirmBtn: {
     width: '100%',
-    backgroundColor: '#33CCFF',
+    backgroundColor: colors.primaryBlue, // החלפנו לכחול המותג שלכן במקום התכלת של וויז
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
+    marginTop: 8,
   },
-  wazeBtnText: {
+  confirmBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.primaryNavy,
+    color: colors.white,
   },
   homeBtn: {
     paddingVertical: 12,
     alignItems: 'center',
   },
   homeBtnText: {
-    color: colors.primaryBlue,
+    color: colors.textSecondary,
     fontSize: 14,
   },
 });
