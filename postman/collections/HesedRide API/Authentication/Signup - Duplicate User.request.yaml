@@ -1,0 +1,30 @@
+$kind: http-request
+name: 'Signup - Duplicate User'
+method: POST
+url: '{{base_url}}/api/signup'
+order: 2000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "id_number": "123456789",
+      "full_name": "ישראל ישראלי",
+      "password": "password123",
+      "phone_number": "0501234567"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status code is 400 for duplicate user", function () {
+          pm.response.to.have.status(400);
+      });
+
+      pm.test("Error message indicates user already exists", function () {
+          var jsonData = pm.response.json();
+          pm.expect(jsonData).to.have.property("detail");
+          pm.expect(jsonData.detail).to.be.a("string");
+      });

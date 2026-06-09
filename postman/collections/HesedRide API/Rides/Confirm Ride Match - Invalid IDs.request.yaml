@@ -1,0 +1,28 @@
+$kind: http-request
+name: 'Confirm Ride Match - Invalid IDs'
+method: POST
+url: '{{base_url}}/api/rides/confirm'
+order: 4000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "volunteer_ride_id": 999999,
+      "ride_request_id": 999999
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status code is 404 for invalid IDs", function () {
+          pm.response.to.have.status(404);
+      });
+
+      pm.test("Error detail is present", function () {
+          var jsonData = pm.response.json();
+          pm.expect(jsonData).to.have.property("detail");
+          pm.expect(jsonData.detail).to.be.a("string");
+      });

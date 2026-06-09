@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Enum,DateTime, func
+from sqlalchemy import Column, Integer, String,DateTime, func,ForeignKey
+from sqlalchemy.orm import relationship
 from app.db.database import Base
 class User(Base):
     __tablename__ = "users"
@@ -25,3 +26,16 @@ class RideRequest(Base):
     patient_phone = Column(String, nullable=False)
     status = Column(String, default="pending")
     created_at = Column(DateTime, default=func.now())
+
+class VolunteerRide(Base):
+    __tablename__ = "volunteer_rides"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source_location = Column(String, nullable=False)
+    destination_location = Column(String, nullable=False)
+    available_seats = Column(Integer, nullable=False)
+    grace_minutes = Column(Integer, nullable=False)
+    status = Column(String, default="pending")  # pending, proposed, confirmed
+    created_at = Column(DateTime, default=func.now())
+    matched_request_id = Column(Integer, ForeignKey("ride_requests.id"), nullable=True)
+    matched_request = relationship("RideRequest", backref="matched_volunteer")

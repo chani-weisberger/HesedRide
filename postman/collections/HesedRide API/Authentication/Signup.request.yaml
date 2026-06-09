@@ -1,0 +1,42 @@
+$kind: http-request
+name: Signup
+method: POST
+url: '{{base_url}}/api/signup'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "id_number": "123456789",
+      "full_name": "ישראל ישראלי",
+      "password": "password123",
+      "phone_number": "0501234567"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status code is 200", function () {
+          pm.response.to.have.status(200);
+      });
+
+      pm.test("Response has id, full_name, role", function () {
+          var jsonData = pm.response.json();
+          pm.expect(jsonData).to.have.property("id");
+          pm.expect(jsonData).to.have.property("full_name");
+          pm.expect(jsonData).to.have.property("role");
+      });
+
+      pm.test("Default role is volunteer", function () {
+          var jsonData = pm.response.json();
+          pm.expect(jsonData.role).to.eql("volunteer");
+      });
+
+      pm.test("Save user_id to environment", function () {
+          var jsonData = pm.response.json();
+          pm.environment.set("user_id", jsonData.id);
+          pm.environment.set("user_role", jsonData.role);
+      });

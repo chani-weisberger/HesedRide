@@ -1,0 +1,51 @@
+$kind: http-request
+name: Create Ride Request
+method: POST
+url: '{{base_url}}/api/rides/create'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "origin": "תל אביב, דיזנגוף 1",
+      "destination": "בית חולים איכילוב",
+      "ride_date": "2026-07-01",
+      "ride_time": "09:00",
+      "passenger_count": 1,
+      "patient_name": "שרה כהן",
+      "patient_phone": "0521234567"
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status code is 200", function () {
+          pm.response.to.have.status(200);
+      });
+
+      pm.test("Response has required fields", function () {
+          var jsonData = pm.response.json();
+          pm.expect(jsonData).to.have.property("id");
+          pm.expect(jsonData).to.have.property("status");
+          pm.expect(jsonData).to.have.property("created_at");
+          pm.expect(jsonData).to.have.property("origin");
+          pm.expect(jsonData).to.have.property("destination");
+      });
+
+      pm.test("Initial status is pending", function () {
+          var jsonData = pm.response.json();
+          pm.expect(jsonData.status).to.eql("pending");
+      });
+
+      pm.test("passenger_count is a number", function () {
+          var jsonData = pm.response.json();
+          pm.expect(jsonData.passenger_count).to.be.a("number");
+      });
+
+      pm.test("Save ride_request_id to environment", function () {
+          var jsonData = pm.response.json();
+          pm.environment.set("ride_request_id", jsonData.id);
+      });
