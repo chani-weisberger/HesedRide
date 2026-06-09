@@ -1,97 +1,132 @@
-// volunteer/waiting-for-rider.tsx — מסך המתנה של המתנדב לאישור הנוסע (צד מתנדב)
-import React, { useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View, Linking } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+// volunteer/waiting-for-rider.tsx — מסך המתנה לאישור הנוסע (צד מתנדב)
 import ScreenWrapper from '@/components/ScreenWrapper';
 import { colors } from '@/styles/colors';
 import { common } from '@/styles/common';
 import { typography } from '@/styles/typography';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // 🌟 מעודכן ל-AsyncStorage
 
-export default function WaitingForRiderPage() {
-  const router = useRouter();
+export default function VolunteerWaitingForRiderPage() {
+  const [isCanceling, setIsCanceling] = useState(false);
   
-  // 1. התיקון הראשון: קריאת המזהים של הנסיעה שחני צריכה
-  const params = useLocalSearchParams<{ volunteer_ride_id: string; ride_request_id: string }>();
+  // מקבלים את ה-ID האמיתי של הנסיעה שנשלח ממסך הסיכום
+  const { volunteer_ride_id } = useLocalSearchParams<{ volunteer_ride_id: string }>();
 
-  // סטייט שמדמה האם הנוסע כבר אישר את הנסיעה בצד שלו
-  const [isRiderConfirmed, setIsRiderConfirmed] = useState(false);
+  useEffect(() => {
+    // אם אין ID (כי נכנסו לדף ישירות), לא מריצים את הלולאה סתם
+    if (!volunteer_ride_id) {
+      console.warn("לא נמצא מזהה נסיעה (volunteer_ride_id) תקין במסך ההמתנה");
+      return;
+    }
 
-  // הלינק של גוגל מאפס שחני שולחת ב-JSON (לינק בדיקה זמני)
-  const googleMapsLink = "https://maps.google.com";
+    // בדיקה אוטומטית (Polling) מול רחלי כל 4 שניות
+    const checkRideStatus = async () => {
+      try {
+        const token = await AsyncStorage.getItem('userToken');
+        
+        const response = await fetch(`http://127.0.0.1:8000/api/rides/${volunteer_ride_id}/status`, {
+          headers: {
+            'Authorization': `Bearer ${token}` // שולחים את הטוקן גם כאן
+          }
+        });
 
-  const handleOpenNavigation = () => {
-    // פתיחת הלינק של גוגל מאפס של רחלי
-    Linking.openURL(googleMapsLink).catch(() => {
-      alert('לא ניתן לפתוח את אפליקציית הניווט');
-    });
+        if (response.ok) {
+          const data = await response.json();
+          // אם הנוסע אישר והסטטוס השתנה ל-approved
+          if (data.status === 'approved') {
+             clearInterval(intervalId);
+             Alert.alert('🎉 הנוסע אישר!', 'נמצאה התאמה והנוסע אישר את הנסיעה.', [
+               { text: 'מעולה!', onPress: () => router.replace('/volunteer/volunteer-type') }
+             ]);
+          }
+        }
+      } catch (error) {
+        console.error("שגיאה בבדיקת הסטטוס מהשרת:", error);
+      }
+    };
+
+    // מפעילים את הלולאה
+    const intervalId = setInterval(checkRideStatus, 4000);
+    return () => clearInterval(intervalId); // מנקים כשיוצאים מהמסך
+  }, [volunteer_ride_id]);
+
+  // ❌ פונקציית ביטול החיפוש
+  const handleCancelSearch = async () => {
+    if (!volunteer_ride_id) {
+      router.replace('/volunteer/volunteer-type');
+      return;
+    }
+
+    setIsCanceling(true);
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      
+      const response = await fetch(`http://127.0.0.1:8000/api/rides/volunteer/cancel/${volunteer_ride_id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      setIsCanceling(false);
+      if (response.ok) {
+        Alert.alert('החיפוש בוטל', 'נסיעת ההתנדבות שלך בוטלה בהצלחה.', [
+          { text: 'אוקי', onPress: () => router.replace('/volunteer/volunteer-type') }
+        ]);
+      } else {
+        Alert.alert('שגיאה', 'לא הצלחנו לבטל את הנסיעה בשרת כרגע.');
+      }
+    } catch (error) {
+      setIsCanceling(false);
+      Alert.alert('שגיאה', 'שגיאת תקשורת בניסיון לבטל את הנסיעה.');
+    }
   };
 
   return (
     <ScreenWrapper>
       <View style={styles.container}>
-        
-        {!isRiderConfirmed ? (
-          // ⏳ מצב א': בול הקוד המקור והמעוצב שלך! (כל עוד הנוסע לא אישר)
-          <View style={styles.centerContent}>
-            <ActivityIndicator 
-              size="large" 
-              color={colors.primaryBlue} 
-              style={styles.loader} 
-            />
-            <Text style={styles.title}>בודק מה עם הנוסע...</Text>
-            <Text style={styles.subtitle}>אנא המתן לאישורו של הנוסע על מנת להתחיל בנסיעה</Text>
-            
-            {/* 🔧 כפתור סימולציה זמני לבדיקה בדפדפן - לוחצים עליו כדי לדמות שהנוסע אישר */}
-            <TouchableOpacity 
-              style={styles.mockButton} 
-              onPress={() => setIsRiderConfirmed(true)}
-            >
-              <Text style={styles.mockButtonText}>🔧 סימולציה: הנוסע אישר! (ללחוץ לבדיקה)</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          // 🎉 מצב ב': התיקון השני - מה שקורה כשהנוסע מאשר (הכפתור של רחלי)
-          <View style={styles.centerContent}>
-            <Text style={[styles.title, { color: '#11caa0' }]}>הנסיעה אושרה סופית! 🥳</Text>
-            <Text style={styles.subtitle}>הנוסע אישר את נסיעת החסד שלך. הנה מסלול הנסיעה בגוגל מאפס:</Text>
-            
-            <View style={styles.btnGroup}>
-              {/* הכפתור של רחלי שמנווט לגוגל מאפס */}
-              <TouchableOpacity 
-                style={common.buttonPrimary} 
-                onPress={handleOpenNavigation}
-                activeOpacity={0.8}
-              >
-                <Text style={common.buttonTextPrimary}>פתח ניווט ב-Google Maps 🗺️</Text>
-              </TouchableOpacity>
+        <Text style={styles.title}>מחפשים לך נוסע...</Text>
+        <Text style={styles.subtitle}>אנא המתן, המערכת מנסה להתאים חולה למסלול שלך ברגעים אלו</Text>
 
-              <TouchableOpacity 
-                style={styles.homeBtn} 
-                onPress={() => router.replace('/volunteer/volunteer-type')}
-              >
-                <Text style={styles.homeBtnText}>חזרה למסך הבית</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+        <View style={styles.loaderContainer}>
+          {/* הגלגל המסתובב הגדול שלך! */}
+          <ActivityIndicator size="large" color={colors.primaryBlue} style={styles.loader} />
+        </View>
 
+        <View style={styles.btnGroup}>
+          <TouchableOpacity 
+            style={styles.cancelBtn} 
+            onPress={handleCancelSearch} 
+            disabled={isCanceling}
+          >
+            {isCanceling ? (
+              <ActivityIndicator color={colors.primaryBlue} />
+            ) : (
+              <Text style={styles.cancelText}>ביטול חיפוש והתנדבות</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
     </ScreenWrapper>
   );
 }
 
-// שמרנו על הסטייל המדויק והנקי שלך!
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center', alignItems: 'center' },
-  centerContent: { width: '100%', alignItems: 'center', gap: 12 },
-  loader: { marginBottom: 24, transform: [{ scale: 1.5 }] },
-  title: { ...typography.h2, color: colors.primaryNavy, textAlign: 'center', marginBottom: 8 },
-  subtitle: { ...typography.bodySecondary, textAlign: 'center', paddingHorizontal: 20, lineHeight: 22 },
-  btnGroup: { width: '100%', gap: 12, marginTop: 16 },
-  homeBtn: { alignItems: 'center', padding: 12 },
-  homeBtnText: { color: colors.primaryBlue, fontSize: 14, fontWeight: '500' },
-  
-  // עיצוב כפתור הסימולציה
-  mockButton: { marginTop: 40, padding: 10, backgroundColor: '#f1f5f9', borderRadius: 8, borderWidth: 1, borderColor: '#cbd5e1' },
-  mockButtonText: { color: '#64748b', fontSize: 12, fontStyle: 'italic' }
+  container: { flex: 1, padding: 24, justifyContent: 'center', alignItems: 'center', gap: 20 },
+  title: { ...typography.h2, color: colors.primaryNavy, textAlign: 'center' },
+  subtitle: { ...typography.bodySecondary, textAlign: 'center', paddingHorizontal: 20 },
+  loaderContainer: { marginVertical: 40, justifyContent: 'center', alignItems: 'center' },
+  loader: { transform: [{ scale: 1.5 }] },
+  btnGroup: { width: '100%', marginTop: 20 },
+  cancelBtn: { padding: 16, borderRadius: 12, borderWidth: 1, borderColor: colors.primaryBlue, alignItems: 'center' },
+  cancelText: { color: colors.primaryBlue, fontWeight: '600', fontSize: 16 },
 });
