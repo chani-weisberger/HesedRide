@@ -13,19 +13,6 @@ from app.services.maps_service import generate_google_maps_link
 router = APIRouter(prefix="/api/rides", tags=["Rides"])
 
 
-@router.get("/{ride_id}/status")
-def get_ride_status(ride_id: int, ride_type: Literal["request", "volunteer"], db: Session = Depends(get_db)):
-    if ride_type == "request":
-        ride = db.query(models.RideRequest).filter_by(id=ride_id).first()
-    else:
-        ride = db.query(models.VolunteerRide).filter_by(id=ride_id).first()
-
-    if not ride:
-        raise HTTPException(status_code=404, detail="נסיעה לא נמצאה")
-
-    return {"status": ride.status}
-
-
 @router.post("/create", response_model=schemas.RideRequestResponse)
 def create_ride_request(ride_data: schemas.RideRequestCreate, db: Session = Depends(get_db)):
     try:
@@ -160,7 +147,7 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
             # 1. שליפת נסיעת המתנדב מהדאטה-בייס
             ride = db.query(models.VolunteerRide).filter_by(id=ride_id).first()
             if not ride:
-                raise HTTPException(status_code=404, detail="נסיעת המתנדב לא נמצאה")
+                raise HTTPException(status_code=404, detail="נסיעת המתנדב לאמצאה")
 
             # 2. אם הסטטוס עדיין בחיפוש (pending), ננסה להריץ שוב את אלגוריתם השידוך
             if ride.status == "pending":
@@ -171,7 +158,7 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
                     db.commit()
                     return {"status": "proposed"}
 
-                # ⏱️ מנגנון טיימאאוט חסין לחלוטין משגיאות אזורי זמן - מיושר נכון מחוץ ל-if!
+                # ⏱️ מנגנון טיימאאוט חסין - מיושר בצורה מושלמת מחוץ ל-if של השידוך!
                 if hasattr(ride, 'created_at') and ride.created_at:
                     from datetime import datetime, timezone
 
@@ -187,7 +174,7 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
                         db.commit()
                         return {"status": "no_match_available"}
 
-            # 3. החזרת הסטטוס הנוכחי (pending, proposed, confirmed, או no_match_available)
+            # 3. החזרת הסטטוס הנוכחי
             return {"status": ride.status}
 
         elif ride_type == "passenger":
