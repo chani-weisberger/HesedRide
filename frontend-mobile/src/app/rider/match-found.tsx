@@ -7,9 +7,15 @@ import { typography } from '@/styles/typography';
 
 export default function RiderMatchFoundPage() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ ride_request_id: string; volunteer_name: string; volunteer_phone: string; volunteer_car: string; }>();
+  const params = useLocalSearchParams<{
+    ride_request_id: string;
+    ride_status: string; 
+    volunteer_name: string;
+    volunteer_phone: string;
+    volunteer_car: string;
+  }>();
 
-  const [currentStatus, setCurrentStatus] = useState('proposed');
+  const [currentStatus, setCurrentStatus] = useState(params.ride_status || 'proposed');
   const [isConfirming, setIsConfirming] = useState(false);
 
   useEffect(() => {

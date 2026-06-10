@@ -39,15 +39,17 @@ export default function RiderFindingVolunteerPage() {
         if (response.ok) {
           const data = await response.json();
 
+          // 🌟 התיקון: מקשיבים לכל מגוון הסטטוסים של השידוך הדו-צדדי!
           if (['proposed', 'volunteer_confirmed', 'rider_confirmed', 'confirmed'].includes(data.status)) {
             clearInterval(intervalId);
             router.replace({
               pathname: '/rider/match-found',
               params: {
                 ride_request_id: ride_request_id,
-                volunteer_name: data.volunteer_name,
-                volunteer_phone: data.volunteer_phone,
-                volunteer_car: data.volunteer_car
+                ride_status: data.status,
+                volunteer_name: data.volunteer_name || 'מתנדב חסד',
+                volunteer_phone: data.volunteer_phone || '050-0000000',
+                volunteer_car: data.volunteer_car || 'רכב מתנדב'
               }
             });
           }
