@@ -60,7 +60,7 @@ export default function FindingVolunteerPage() {
         const data = await response.json();
 
         // אם נמצא מתנדב — עוברים לדף האישור
-        if (data.status === 'matched') {
+        if (data.status === 'proposed') {
           clearInterval(interval);
           router.replace({
             pathname: '/rider/match-found' as any,
