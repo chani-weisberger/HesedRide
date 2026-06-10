@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.utils import find_best_match
@@ -12,9 +14,10 @@ router = APIRouter(prefix="/api/rides", tags=["Rides"])
 
 
 @router.get("/{ride_id}/status")
-def get_ride_status(ride_id: int, db: Session = Depends(get_db)):
-    ride = db.query(models.RideRequest).filter_by(id=ride_id).first()
-    if not ride:
+def get_ride_status(ride_id: int, ride_type: Literal["request", "volunteer"], db: Session = Depends(get_db)):
+    if ride_type == "request":
+        ride = db.query(models.RideRequest).filter_by(id=ride_id).first()
+    else:
         ride = db.query(models.VolunteerRide).filter_by(id=ride_id).first()
 
     if not ride:
@@ -85,6 +88,30 @@ def create_volunteer_ride(volunteer_data: schemas.VolunteerRideCreate, db: Sessi
             "match_details": None
         }
 
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.patch("/volunteer/cancel/{volunteer_ride_id}")
+def cancel_volunteer_ride(volunteer_ride_id: int, db: Session = Depends(get_db)):
+    try:
+        volunteer_ride = db.query(models.VolunteerRide).filter_by(id=volunteer_ride_id).first()
+        if not volunteer_ride:
+            raise HTTPException(status_code=404, detail="נסיעת המתנדב לא נמצאה")
+
+        if volunteer_ride.matched_request_id is not None:
+            ride_request = db.query(models.RideRequest).filter_by(id=volunteer_ride.matched_request_id).first()
+            if ride_request:
+                ride_request.status = "pending"
+
+        volunteer_ride.status = "cancelled"
+        db.commit()
+
+        return {"status": "success", "message": "נסיעת המתנדב בוטלה בהצלחה"}
+
+    except HTTPException as he:
+        raise he
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))

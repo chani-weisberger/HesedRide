@@ -39,9 +39,9 @@ export default function VolunteerAuthPage() {
     setIsLoading(false);
 
     if (response.ok) {
-  if (data.token) {
-    await SecureStore.setItemAsync('userToken', data.token);
-  }
+  if (data.access_token) {
+  await SecureStore.setItemAsync('userToken', data.access_token);
+}
   router.replace('/volunteer/volunteer-type' as any);
 } else {
       Alert.alert('שגיאה', data.detail || 'תעודת זהות או סיסמה שגויים');

@@ -1,3 +1,7 @@
+import os
+from datetime import datetime, timedelta
+
+import jwt
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -6,21 +10,35 @@ from app.db import models
 
 from app.schemas.schemas import LoginRequest, SignupRequest, UserResponse
 
+JWT_SECRET = os.getenv("JWT_SECRET")
+JWT_ALGORITHM = "HS256"
 
 router = APIRouter(prefix="/api", tags=["Authentication"])
 
-@router.post("/login", response_model=UserResponse)
+@router.post("/login")
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(models.User).filter_by(id_number=request.id_number).first()
     if not user or user.password != request.password:
         raise HTTPException(status_code=401, detail="תעודת זהות או סיסמה שגויים")
-    return user
+
+    payload = {
+        "sub": str(user.id),
+        "role": user.role,
+        "exp": datetime.utcnow() + timedelta(hours=24),
+    }
+    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": UserResponse.model_validate(user),
+    }
 
 @router.post("/signup", response_model=UserResponse)
 def signup(request: SignupRequest, db: Session = Depends(get_db)):
     existing_user = db.query(models.User).filter_by(id_number=request.id_number).first()
     if existing_user:
-        raise HTTPException(status_code=400, detail="משתמש עם תעודת זהות זו כבר קיים במערכת")
+        raise HTTPException(status_code=409, detail="משתמש עם תעודת זהות זו כבר קיים במערכת")
 
     new_user = models.User(
         id_number=request.id_number,

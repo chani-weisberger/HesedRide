@@ -41,7 +41,7 @@ export default function ImmediateRideFormPage() {
 
     // המעבר המעודכן: שולח לדף הסיכום הגלובלי ומספר לו שזו נסיעה עכשווית!
     router.push({
-      pathname: '/volunteer/ride-summary' as any,
+      pathname: '/volunteer/volunteer-ride-summary' as any,
       params: { 
         rideData: JSON.stringify(volunteerRideData),
         typeTitle: 'התנדבות מיידית' 

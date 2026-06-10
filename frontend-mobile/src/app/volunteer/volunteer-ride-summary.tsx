@@ -1,4 +1,4 @@
-// volunteer/ride-summary.tsx — דף סיכום גלובלי לכל סוגי ההתנדבויות (צד מתנדב)
+// volunteer/volunteer-ride-summary.tsx — דף סיכום גלובלי לכל סוגי ההתנדבויות (צד מתנדב)
 import ScreenWrapper from '@/components/ScreenWrapper';
 import { colors } from '@/styles/colors';
 import { common } from '@/styles/common';
@@ -14,7 +14,7 @@ import {
     View,
 } from 'react-native';
 import { VolunteerRideRequest } from '@/services/rideService';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // 🌟 זיכרון שעובד מעולה גם בדפדפן וגם בטלפון
+import * as SecureStore from 'expo-secure-store';
 
 export default function VolunteerGlobalRideSummaryPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -32,7 +32,7 @@ export default function VolunteerGlobalRideSummaryPage() {
 
     try {
       // 1. 🔑 שולפים מהזיכרון את הטוקן שללי שמרה בלוגין
-      const token = await AsyncStorage.getItem('userToken');
+      const token = await SecureStore.getItemAsync('userToken');
 
       const volunteerRide: VolunteerRideRequest = {
         source_location: ride.origin,

@@ -39,7 +39,7 @@ export default function RideSummaryPage() {
         // עובר לדף חיפוש מתנדב עם מזהה הנסיעה
         router.replace({
           pathname: '/rider/finding-volunteer' as any,
-          params: { rideId: data.ride_id },
+          params: { rideId: data.id },
         });
       } else {
         Alert.alert('שגיאה', data.message || 'הגשת הבקשה נכשלה');
