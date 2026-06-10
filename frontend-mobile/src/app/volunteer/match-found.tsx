@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Alert, Linking, ActivityIndicator, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import ScreenWrapper from '@/components/ScreenWrapper';
@@ -10,28 +10,10 @@ export default function MatchFoundPage() {
   const router = useRouter();
   const params = useLocalSearchParams<{ passenger_name: string; origin: string; destination: string; ride_request_id: string; volunteer_ride_id: string; }>();
 
-  const [currentStatus, setCurrentStatus] = useState('proposed');
+  const [isConfirmed, setIsConfirmed] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [navigationUrl, setNavigationUrl] = useState<string | null>(null);
   const [passengerPhone, setPassengerPhone] = useState<string>('');
-
-  useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        const response = await fetch(`http://127.0.0.1:8000/api/rides/${params.volunteer_ride_id}/status?ride_type=volunteer`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.status === 'confirmed' || data.status === 'volunteer_approved' || data.status === 'rider_approved') {
-             setCurrentStatus(data.status);
-          }
-        }
-      } catch (error) {
-        console.error(error);
-      }
-    };
-    const interval = setInterval(checkStatus, 3000);
-    return () => clearInterval(interval);
-  }, [params.volunteer_ride_id]);
 
   const handleVolunteerConfirm = async () => {
     setIsConfirming(true);
@@ -47,10 +29,10 @@ export default function MatchFoundPage() {
 
       const data = await response.json();
       if (response.ok && data.status === 'success') {
-        // 🌟 הנה התיקון הקריטי שמנע מהמסך לזוז!
-        setCurrentStatus(data.ride_status || 'volunteer_approved');
+        // 🔥 בום! נסיעה מאושרת במכה אחת
         setNavigationUrl(data.waze_route_url || null);
         setPassengerPhone(data.patient_phone || '058-4657588');
+        setIsConfirmed(true);
       } else {
          Alert.alert('שגיאה', 'לא ניתן לאשר את הנסיעה');
       }
@@ -65,13 +47,8 @@ export default function MatchFoundPage() {
     if (navigationUrl) {
       if (Platform.OS === 'web') window.open(navigationUrl, '_blank');
       else Linking.openURL(navigationUrl);
-    } else {
-      Alert.alert('שים לב', 'ניווט עדיין לא זמין, ממתין לאישור נוסע');
     }
   };
-
-  const isConfirmed = currentStatus === 'confirmed';
-  const hasVolunteerApproved = currentStatus === 'volunteer_approved';
 
   const InfoRow = ({ label, value }: { label: string; value: string }) => (
     <View style={styles.row}>
@@ -86,7 +63,7 @@ export default function MatchFoundPage() {
         {isConfirmed && <Text style={styles.successBadge}>✓ נסיעה פעילה</Text>}
         <Text style={styles.title}>{isConfirmed ? `אתה בדרך אל ${params.passenger_name}! 🚗` : 'נמצאה לך התאמה! 🎉'}</Text>
         <Text style={styles.subtitle}>
-          {isConfirmed ? 'תודה על חסד עצום! הניווט פתוח עבורך:' : hasVolunteerApproved ? 'אישרת מצידך! ממתינים שהחולה יאשר...' : 'מתנדב יקר, נמצא נוסע במסלול שלך'}
+          {isConfirmed ? 'תודה על חסד עצום! הניווט פתוח עבורך:' : 'מתנדב יקר, נמצא נוסע במסלול שלך'}
         </Text>
 
         <View style={common.card}>
@@ -98,13 +75,11 @@ export default function MatchFoundPage() {
         </View>
 
         <View style={styles.btnGroup}>
-          {!isConfirmed && !hasVolunteerApproved && (
+          {!isConfirmed ? (
             <TouchableOpacity style={common.buttonPrimary} onPress={handleVolunteerConfirm} disabled={isConfirming}>
-              {isConfirming ? <ActivityIndicator color="#fff" /> : <Text style={common.buttonTextPrimary}>אישור נסיעה ומעבר לאישור חולה 🤝</Text>}
+              {isConfirming ? <ActivityIndicator color="#fff" /> : <Text style={common.buttonTextPrimary}>אישור נסיעה ויציאה לדרך 🤝</Text>}
             </TouchableOpacity>
-          )}
-
-          {isConfirmed && (
+          ) : (
             <TouchableOpacity style={[common.buttonPrimary, { backgroundColor: '#2ed573' }]} onPress={handleOpenNavigation}>
               <Text style={common.buttonTextPrimary}>🗺️ פתח מפת ניווט (Waze / גוגל)</Text>
             </TouchableOpacity>
