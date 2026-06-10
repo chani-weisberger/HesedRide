@@ -36,11 +36,14 @@ export default function RideSummaryPage() {
       setIsLoading(false);
 
       if (response.ok) {
-        // עובר לדף חיפוש מתנדב עם מזהה הנסיעה
+        
+        if (response.ok) {
+
         router.replace({
           pathname: '/rider/finding-volunteer' as any,
-          params: { rideId: data.id },
+          params: { ride_request_id: data.id },
         });
+      }
       } else {
         Alert.alert('שגיאה', data.message || 'הגשת הבקשה נכשלה');
       }
