@@ -40,16 +40,17 @@ export default function RiderFindingVolunteerPage() {
           const data = await response.json();
 
           // 🎉 נמצא שידוך או שהנסיעה כבר אושרה! מעבירים את הנוסע למסך הפרטים
+          // 🎉 נמצא שידוך או שהנסיעה כבר אושרה! מעבירים את הנוסע למסך הפרטים
           if (data.status === 'proposed' || data.status === 'confirmed') {
             clearInterval(intervalId);
             router.replace({
               pathname: '/rider/match-found',
               params: {
                 ride_request_id: ride_request_id,
-                ride_status: data.status, // מעבירים את הסטטוס העדכני
-                volunteer_name: data.volunteer_name,
-                volunteer_phone: data.volunteer_phone,
-                volunteer_car: data.volunteer_car
+                ride_status: data.status || 'proposed',
+                volunteer_name: data.volunteer_name || 'מתנדב חסד',
+                volunteer_phone: data.volunteer_phone || '050-0000000',
+                volunteer_car: data.volunteer_car || 'רכב מתנדב'
               }
             });
           }
