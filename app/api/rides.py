@@ -190,10 +190,33 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
 
             return {"status": ride.status}
 
+
         elif ride_type == "passenger" or ride_type == "request":
+
             ride = db.query(models.RideRequest).filter_by(id=ride_id).first()
+
             if not ride:
                 raise HTTPException(status_code=404, detail="בקשת הנוסע לא נמצאה")
+
+            # 🌟 אם נמצא מתנדב בסטטוס proposed או confirmed, נשלוף את פרטיו עבור הנוסע!
+
+            if ride.status in ["proposed", "confirmed"]:
+
+                volunteer = db.query(models.VolunteerRide).filter_by(matched_request_id=ride.id).first()
+
+                if volunteer:
+                    return {
+
+                        "status": ride.status,
+
+                        "volunteer_name": "ישראל ישראלי",  # כאן בהמשך תחברי לשם הפיזי מה-User
+
+                        "volunteer_phone": "050-1234567",
+
+                        "volunteer_car": "טויוטה קורולה לבנה"
+
+                    }
+
             return {"status": ride.status}
 
         else:
