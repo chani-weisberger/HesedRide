@@ -3,44 +3,46 @@ import { colors } from '@/styles/colors';
 import { typography } from '@/styles/typography';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 
 export default function RiderFindingVolunteerPage() {
-  // נחלץ את המזהה (מוודאים שהוא מגיע או מהניווט או כברירת מחדל לבדיקות)
   const params = useLocalSearchParams<{ ride_request_id: string }>();
   const ride_request_id = params.ride_request_id;
 
   useEffect(() => {
-    // 🌟 כאן נפתור את בעיית השתיקה בבדיקות: אם אנחנו בטסטר ואין ID, נשתמש ב-ID האחרון שנוצר
-    const activeId = ride_request_id || "25";
-
-    console.log(`[RIDER] מריץ בדיקת סטטוס עבור בקשה מספר: ${activeId}`);
+    if (!ride_request_id) {
+      Alert.alert("שגיאה", "מזהה הנסיעה אבד. אנא חזור למסך הבית ונסה שוב.");
+      return;
+    }
 
     const checkRideStatus = async () => {
       try {
-        const response = await fetch(`http://127.0.0.1:8000/api/rides/${activeId}/status?ride_type=request`);
+        const response = await fetch(`http://127.0.0.1:8000/api/rides/${ride_request_id}/status?ride_type=request`);
+
         if (response.ok) {
           const data = await response.json();
-          console.log("[RIDER] תשובת שרת שנתקבלו:", data);
 
-          if (data.status === 'confirmed') {
+          // ✨ ברגע שיש התקדמות (שידוך או אישור של צד כלשהו), חותכים מיד למסך המעוצב!
+          if (['proposed', 'volunteer_approved', 'rider_approved', 'confirmed'].includes(data.status)) {
             clearInterval(intervalId);
             router.replace({
               pathname: '/rider/match-found',
               params: {
-                volunteer_name: data.volunteer_name || 'ישראל ישראלי',
-                volunteer_phone: data.volunteer_phone || '050-1234567',
-                volunteer_car: data.volunteer_car || 'טויוטה קורולה לבנה'
+                ride_request_id: ride_request_id,
+                ride_status: data.status,
+                volunteer_name: data.volunteer_name || 'מתנדב חסד',
+                volunteer_phone: data.volunteer_phone || '050-0000000',
+                volunteer_car: data.volunteer_car || 'רכב מתנדב'
               }
             });
           }
         }
       } catch (error) {
-        console.error("שגיאה בקריאת סטטוס נוסע:", error);
+        console.error("שגיאה בבדיקת הסטטוס:", error);
       }
     };
 
-    const intervalId = setInterval(checkRideStatus, 3000);
+    const intervalId = setInterval(checkRideStatus, 4000);
     return () => clearInterval(intervalId);
   }, [ride_request_id]);
 
