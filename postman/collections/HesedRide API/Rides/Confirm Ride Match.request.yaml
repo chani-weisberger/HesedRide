@@ -1,0 +1,37 @@
+$kind: http-request
+name: Confirm Ride Match
+method: POST
+url: '{{base_url}}/api/rides/confirm'
+order: 3000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "volunteer_ride_id": {{volunteer_ride_id}},
+      "ride_request_id": {{ride_request_id}}
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      pm.test("Status code is 200", function () {
+          pm.response.to.have.status(200);
+      });
+
+      pm.test("Response has status success", function () {
+          var jsonData = pm.response.json();
+          pm.expect(jsonData.status).to.eql("success");
+      });
+
+      pm.test("Response has waze_route_url", function () {
+          var jsonData = pm.response.json();
+          pm.expect(jsonData).to.have.property("waze_route_url");
+      });
+
+      pm.test("Response has patient_phone", function () {
+          var jsonData = pm.response.json();
+          pm.expect(jsonData).to.have.property("patient_phone");
+      });
