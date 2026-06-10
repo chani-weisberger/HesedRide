@@ -21,11 +21,8 @@ const AsyncStorage = Platform.OS !== 'web'
 
 export default function VolunteerWaitingForRiderPage() {
   const [isCanceling, setIsCanceling] = useState(false);
-  
-  // 🔔 השורה הזו נמחקה בטעות – החזרנו אותה כדי שהמחשב יזהה את ה-ID!
   const { volunteer_ride_id } = useLocalSearchParams<{ volunteer_ride_id: string }>();
 
-  // ✨ פונקציית עזר קטנה וחכמה לשליפת הטוקן מבלי לקרוס בדפדפן
   const getAuthToken = async () => {
     if (Platform.OS === 'web') {
       return localStorage.getItem('userToken');
@@ -42,35 +39,41 @@ export default function VolunteerWaitingForRiderPage() {
   };
 
   useEffect(() => {
-    // אם אין ID (כי נכנסו לדף ישירות), לא מריצים את הלולאה סתם
     if (!volunteer_ride_id) {
       console.warn("לא נמצא מזהה נסיעה (volunteer_ride_id) תקין במסך ההמתנה");
       return;
     }
 
-    // בדיקה אוטומטית (Polling) מול רחלי כל 4 שניות
     const checkRideStatus = async () => {
       try {
-        const token = await getAuthToken(); // ✨ משתמשים בפונקציה המוגנת החדשה
-        
+        const token = await getAuthToken();
+
         const response = await fetch(`http://127.0.0.1:8000/api/rides/${volunteer_ride_id}/status?ride_type=volunteer`, {
           headers: {
-            'Authorization': `Bearer ${token}` // שולחים את הטוקן גם כאן
+            'Authorization': `Bearer ${token}`
           }
         });
 
         if (response.ok) {
           const data = await response.json();
 
-          if (data.status === 'confirmed') {
+          // 🎉 התאמה נמצאה בזמן אמת! מעבירים את המתנדב למסך פרטי הנוסע
+          if (data.status === 'proposed') {
              clearInterval(intervalId);
-             Alert.alert('🎉 הנוסע אישר!', 'נמצאה התאמה והנוסע אישר את הנסיעה.', [
-               { text: 'מעולה!', onPress: () => router.replace('/volunteer/volunteer-type') }
-             ]);
+             router.replace({
+               pathname: '/volunteer/match-found',
+               params: {
+                 volunteer_ride_id: volunteer_ride_id,
+                 ride_request_id: String(data.ride_request_id),
+                 passenger_name: data.passenger_name || 'נוסע חסד',
+                 origin: data.origin,
+                 destination: data.destination
+               }
+             });
           }
-          // ✨ הוספנו: תנאי עצירה חכם במידה ועבר הזמן ולא נמצא נוסע במערכת!
+          // ⏱️ תנאי עצירה חכם במידה ועבר הזמן ולא נמצא נוסע במערכת!
           else if (data.status === 'no_match_available') {
-             clearInterval(intervalId); // עוצרים מיד את הריצה ברקע
+             clearInterval(intervalId);
              Alert.alert(
                'תודה רבה! ❤️',
                'כל הכבוד על הרצון והלב החם להתנדב! כרגע אין חולה במאגר שזקוק להסעה במסלול זה. נשמח לעמוד בקשר בנסיעות הבאות.',
@@ -79,18 +82,23 @@ export default function VolunteerWaitingForRiderPage() {
                ]
              );
           }
+          // לזרימות עתידיות (דו-צדדיות) אם הסטטוס הפך ישר ל-confirmed
+          else if (data.status === 'confirmed') {
+             clearInterval(intervalId);
+             Alert.alert('🎉 הנסיעה מאושרת!', 'נמצאה התאמה והנסיעה אושרה.', [
+               { text: 'מעולה!', onPress: () => router.replace('/volunteer/volunteer-type') }
+             ]);
+          }
         }
       } catch (error) {
         console.error("שגיאה בבדיקת הסטטוס מהשרת:", error);
       }
     };
 
-    // מפעילים את הלולאה
     const intervalId = setInterval(checkRideStatus, 4000);
-    return () => clearInterval(intervalId); // מנקים כשיוצאים מהמסך
+    return () => clearInterval(intervalId);
   }, [volunteer_ride_id]);
 
-  // ❌ פונקציית ביטול החיפוש
   const handleCancelSearch = async () => {
     if (!volunteer_ride_id) {
       router.replace('/volunteer/volunteer-type');
@@ -99,13 +107,10 @@ export default function VolunteerWaitingForRiderPage() {
 
     setIsCanceling(true);
     try {
-      const token = await getAuthToken(); // ✨ משתמשים בפונקציה המוגנת החדשה
-      
+      const token = await getAuthToken();
       const response = await fetch(`http://127.0.0.1:8000/api/rides/volunteer/cancel/${volunteer_ride_id}`, {
-      method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` }
       });
 
       setIsCanceling(false);
@@ -129,21 +134,12 @@ export default function VolunteerWaitingForRiderPage() {
         <Text style={styles.subtitle}>אנא המתן, המערכת מנסה להתאים חולה למסלול שלך ברגעים אלו</Text>
 
         <View style={styles.loaderContainer}>
-          {/* הגלגל המסתובב הגדול שלך! */}
           <ActivityIndicator size="large" color={colors.primaryBlue} style={styles.loader} />
         </View>
 
         <View style={styles.btnGroup}>
-          <TouchableOpacity 
-            style={styles.cancelBtn} 
-            onPress={handleCancelSearch} 
-            disabled={isCanceling}
-          >
-            {isCanceling ? (
-              <ActivityIndicator color={colors.primaryBlue} />
-            ) : (
-              <Text style={styles.cancelText}>ביטול חיפוש והתנדבות</Text>
-            )}
+          <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelSearch} disabled={isCanceling}>
+            {isCanceling ? <ActivityIndicator color={colors.primaryBlue} /> : <Text style={styles.cancelText}>ביטול חיפוש והתנדבות</Text>}
           </TouchableOpacity>
         </View>
       </View>
