@@ -61,12 +61,23 @@ export default function VolunteerWaitingForRiderPage() {
 
         if (response.ok) {
           const data = await response.json();
-          // אם הנוסע אישר והסטטוס השתנה ל-approved
+
           if (data.status === 'confirmed') {
              clearInterval(intervalId);
              Alert.alert('🎉 הנוסע אישר!', 'נמצאה התאמה והנוסע אישר את הנסיעה.', [
                { text: 'מעולה!', onPress: () => router.replace('/volunteer/volunteer-type') }
              ]);
+          }
+          // ✨ הוספנו: תנאי עצירה חכם במידה ועבר הזמן ולא נמצא נוסע במערכת!
+          else if (data.status === 'no_match_available') {
+             clearInterval(intervalId); // עוצרים מיד את הריצה ברקע
+             Alert.alert(
+               'תודה רבה! ❤️',
+               'כל הכבוד על הרצון והלב החם להתנדב! כרגע אין חולה במאגר שזקוק להסעה במסלול זה. נשמח לעמוד בקשר בנסיעות הבאות.',
+               [
+                 { text: 'חזרה למסך הבית', onPress: () => router.replace('/volunteer/volunteer-type') }
+               ]
+             );
           }
         }
       } catch (error) {
