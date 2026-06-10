@@ -115,32 +115,29 @@ def confirm_ride_match(confirm_data: schemas.RideConfirmRequest, user_type: str,
         ride_request = db.query(models.RideRequest).filter_by(id=confirm_data.ride_request_id).first()
 
         if not volunteer_ride or not ride_request:
-            raise HTTPException(status_code=404, detail="נסיעת המתנדב או בקשת הנסיעה לא נמצאו")
+            raise HTTPException(status_code=404, detail="הנסיעה לא נמצאה")
 
-        # עדכון סטטוס זמני לפי הצד המאשר
+        # לוגיקת אישור דו-צדדי פשוטה ומנצחת
         if user_type == "volunteer":
-            volunteer_ride.status = "volunteer_confirmed"
-            if ride_request.status != "rider_confirmed":
-                ride_request.status = "volunteer_confirmed"
-        elif user_type in ["rider", "passenger", "request"]:
-            ride_request.status = "rider_confirmed"
-            if volunteer_ride.status != "volunteer_confirmed":
-                volunteer_ride.status = "rider_confirmed"
-
-        # אם שני הצדדים אישרו - נועלים את הנסיעה כפעילה!
-        if volunteer_ride.status in ["volunteer_confirmed", "rider_confirmed"] and ride_request.status in ["volunteer_confirmed", "rider_confirmed"]:
-            if (user_type == "volunteer" and ride_request.status == "rider_confirmed") or \
-               (user_type in ["rider", "passenger", "request"] and volunteer_ride.status == "volunteer_confirmed"):
+            if ride_request.status == "rider_approved":
                 volunteer_ride.status = "confirmed"
                 ride_request.status = "confirmed"
+            else:
+                volunteer_ride.status = "volunteer_approved"
+                ride_request.status = "volunteer_approved"  # משקף לצד השני שהמתנדב כבר זז
+
+        elif user_type in ["rider", "passenger", "request"]:
+            if volunteer_ride.status == "volunteer_approved":
+                volunteer_ride.status = "confirmed"
+                ride_request.status = "confirmed"
+            else:
+                ride_request.status = "rider_approved"
+                volunteer_ride.status = "rider_approved"
 
         db.commit()
-
         waze_link = generate_google_maps_link(volunteer_ride, ride_request)
         return {
             "status": "success",
-            "volunteer_status": volunteer_ride.status,
-            "rider_status": ride_request.status,
             "waze_route_url": waze_link,
             "patient_phone": ride_request.patient_phone
         }
@@ -165,26 +162,15 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
                     ride.matched_request_id = matched_passenger.id
                     db.commit()
 
-            if ride.status in ["proposed", "volunteer_confirmed", "rider_confirmed", "confirmed"]:
+            if ride.status in ["proposed", "volunteer_approved", "rider_approved", "confirmed"]:
                 passenger = db.query(models.RideRequest).filter_by(id=ride.matched_request_id).first()
-                if passenger:
-                    return {
-                        "status": ride.status,
-                        "ride_request_id": passenger.id,
-                        "passenger_name": passenger.patient_name,
-                        "origin": passenger.origin,
-                        "destination": passenger.destination
-                    }
-
-            # ⏱️ מנגנון טיימאאוט (45 שניות)
-            if ride.status == "pending" and hasattr(ride, 'created_at') and ride.created_at:
-                ride_time = ride.created_at.astimezone(timezone.utc) if ride.created_at.tzinfo else ride.created_at.replace(tzinfo=timezone.utc)
-                seconds_passed = (datetime.now(timezone.utc) - ride_time).total_seconds()
-                print(f"[DEBUG] Ride {ride_id} is waiting for {int(seconds_passed)} seconds...")
-                if seconds_passed > 45:
-                    ride.status = "no_match"
-                    db.commit()
-                    return {"status": "no_match_available"}
+                return {
+                    "status": ride.status,
+                    "ride_request_id": passenger.id if passenger else None,
+                    "passenger_name": passenger.patient_name if passenger else "נוסע חסד",
+                    "origin": passenger.origin if passenger else "",
+                    "destination": passenger.destination if passenger else ""
+                }
 
             return {"status": ride.status}
 
@@ -193,7 +179,7 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
             if not ride:
                 raise HTTPException(status_code=404, detail="בקשת הנוסע לא נמצאה")
 
-            if ride.status in ["proposed", "volunteer_confirmed", "rider_confirmed", "confirmed"]:
+            if ride.status in ["proposed", "volunteer_approved", "rider_approved", "confirmed"]:
                 volunteer = db.query(models.VolunteerRide).filter_by(matched_request_id=ride.id).first()
                 return {
                     "status": ride.status,
@@ -202,7 +188,6 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
                     "volunteer_phone": "050-1234567",
                     "volunteer_car": "טויוטה קורולה לבנה"
                 }
-
             return {"status": ride.status}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
