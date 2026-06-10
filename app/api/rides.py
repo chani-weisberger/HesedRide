@@ -108,3 +108,54 @@ def confirm_ride_match(confirm_data: schemas.RideConfirmRequest, db: Session = D
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
+
+
+from datetime import datetime, timezone
+
+
+@router.get("/{ride_id}/status")
+def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db)):
+    try:
+        if ride_type == "volunteer":
+            # 1. שליפת נסיעת המתנדב מהדאטה-בייס
+            ride = db.query(models.VolunteerRide).filter_by(id=ride_id).first()
+            if not ride:
+                raise HTTPException(status_code=404, detail="נסיעת המתנדב לא נמצאה")
+
+            # 2. אם הסטטוס עדיין בחיפוש (pending), ננסה להריץ שוב את אלגוריתם השידוך
+            # (במקרה שנוסע חדש נרשם למערכת בזמן שהמתנדב המתין במסך!)
+            if ride.status == "pending":
+                matched_passenger = find_best_match(ride, db)
+                if matched_passenger:
+                    matched_passenger.status = "proposed"
+                    ride.status = "proposed"
+                    db.commit()
+                    return {"status": "proposed"}
+
+                # ⏱️ מנגנון טיימאאוט: אם עבר זמן מסוים ועדיין אין אף נוסע במסלול
+                # (נניח שעברו יותר מ-45 שניות מאז שהמתנדב התחיל לחפש)
+                if hasattr(ride, 'created_at') and ride.created_at:
+                    # חישוב השניות שעברו מאז יצירת הנסיעה
+                    seconds_passed = (datetime.now(timezone.utc) - ride.created_at.replace(
+                        tzinfo=timezone.utc)).total_seconds()
+
+                    if seconds_passed > 45:  # הגדרת זמן לבדיקה שלכן
+                        ride.status = "no_match"
+                        db.commit()
+                        return {"status": "no_match_available"}
+
+            # 3. החזרת הסטטוס הנוכחי (pending, proposed, confirmed, או no_match_available)
+            return {"status": ride.status}
+
+        elif ride_type == "passenger":
+            # כאן תוכלו להוסיף לוגיקה מקבילה לנוסע בהמשך במידת הצורך
+            ride = db.query(models.RideRequest).filter_by(id=ride_id).first()
+            if not ride:
+                raise HTTPException(status_code=404, detail="בקשת הנוסע לא נמצאה")
+            return {"status": ride.status}
+
+        else:
+            raise HTTPException(status_code=400, detail="סוג נסיעה לא תקין")
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
