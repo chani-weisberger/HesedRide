@@ -49,6 +49,9 @@ def create_volunteer_ride(volunteer_data: schemas.VolunteerRideCreate, db: Sessi
         if matched_passenger:
             matched_passenger.status = "proposed"
             new_volunteer_ride.status = "proposed"
+
+            new_volunteer_ride.matched_request_id = matched_passenger.id
+
             db.commit()
 
             navigation_link = generate_google_maps_link(new_volunteer_ride, matched_passenger)
@@ -191,6 +194,7 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
             return {"status": ride.status}
 
 
+
         elif ride_type == "passenger" or ride_type == "request":
 
             ride = db.query(models.RideRequest).filter_by(id=ride_id).first()
@@ -198,22 +202,37 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
             if not ride:
                 raise HTTPException(status_code=404, detail="בקשת הנוסע לא נמצאה")
 
-            # 🌟 אם נמצא מתנדב בסטטוס proposed או confirmed, נשלוף את פרטיו עבור הנוסע!
-
             if ride.status in ["proposed", "confirmed"]:
 
                 volunteer = db.query(models.VolunteerRide).filter_by(matched_request_id=ride.id).first()
 
                 if volunteer:
+
                     return {
 
                         "status": ride.status,
 
-                        "volunteer_name": "ישראל ישראלי",  # כאן בהמשך תחברי לשם הפיזי מה-User
+                        "volunteer_name": "ישראל ישראלי",
 
                         "volunteer_phone": "050-1234567",
 
                         "volunteer_car": "טויוטה קורולה לבנה"
+
+                    }
+
+                else:
+
+                    # 🌟 הגנה מפני ערכים ריקים שיכולים להקריס את הפרונטאנד
+
+                    return {
+
+                        "status": ride.status,
+
+                        "volunteer_name": "מתנדב חסד",
+
+                        "volunteer_phone": "050-0000000",
+
+                        "volunteer_car": "רכב מתנדב"
 
                     }
 
