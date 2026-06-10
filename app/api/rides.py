@@ -144,10 +144,9 @@ from datetime import datetime, timezone
 def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db)):
     try:
         if ride_type == "volunteer":
-            # 1. שליפת נסיעת המתנדב מהדאטה-בייס
             ride = db.query(models.VolunteerRide).filter_by(id=ride_id).first()
             if not ride:
-                raise HTTPException(status_code=404, detail="נסיעת המתנדב לאמצאה")
+                raise HTTPException(status_code=404, detail="נסיעת המתנדב לא נמצאה")
 
             # 2. אם הסטטוס עדיין בחיפוש (pending), ננסה להריץ שוב את אלגוריתם השידוך
             if ride.status == "pending":
@@ -156,27 +155,40 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
                     matched_passenger.status = "proposed"
                     ride.status = "proposed"
                     db.commit()
-                    return {"status": "proposed"}
+                    return {
+                        "status": "proposed",
+                        "ride_request_id": matched_passenger.id,
+                        "passenger_name": matched_passenger.patient_name,
+                        "origin": matched_passenger.origin,
+                        "destination": matched_passenger.destination
+                    }
 
-                # ⏱️ מנגנון טיימאאוט חסין - מיושר בצורה מושלמת מחוץ ל-if של השידוך!
-                if hasattr(ride, 'created_at') and ride.created_at:
-                    from datetime import datetime, timezone
+            # 🌟 הוספנו: אם הסטטוס כבר 'proposed', נשלוף את פרטי הנוסע המשודך עבור הפרונטאנד!
+            if ride.status == "proposed":
+                passenger = db.query(models.RideRequest).filter_by(id=ride.matched_request_id).first()
+                if passenger:
+                    return {
+                        "status": "proposed",
+                        "ride_request_id": passenger.id,
+                        "passenger_name": passenger.patient_name,
+                        "origin": passenger.origin,
+                        "destination": passenger.destination
+                    }
 
-                    # הופכים את שני הזמנים ל-UTC Aware בצורה מפורשת
-                    ride_time = ride.created_at.astimezone(timezone.utc) if ride.created_at.tzinfo else ride.created_at.replace(tzinfo=timezone.utc)
-                    now_time = datetime.now(timezone.utc)
+            # ⏱️ מנגנון טיימאאוט חסין (45 שניות)
+            if hasattr(ride, 'created_at') and ride.created_at:
+                from datetime import datetime, timezone
+                ride_time = ride.created_at.astimezone(timezone.utc) if ride.created_at.tzinfo else ride.created_at.replace(tzinfo=timezone.utc)
+                now_time = datetime.now(timezone.utc)
+                seconds_passed = (now_time - ride_time).total_seconds()
+                print(f"[DEBUG] Ride {ride_id} is waiting for {int(seconds_passed)} seconds...")
 
-                    seconds_passed = (now_time - ride_time).total_seconds()
-                    print(f"[DEBUG] Ride {ride_id} is waiting for {int(seconds_passed)} seconds...")
+                if seconds_passed > 45:
+                    ride.status = "no_match"
+                    db.commit()
+                    return {"status": "no_match_available"}
 
-                    if seconds_passed > 45:  # זמן ההמתנה המקסימלי בשניות
-                        ride.status = "no_match"
-                        db.commit()
-                        return {"status": "no_match_available"}
-
-            # 3. החזרת הסטטוס הנוכחי
             return {"status": ride.status}
-
 
         elif ride_type == "passenger" or ride_type == "request":
             ride = db.query(models.RideRequest).filter_by(id=ride_id).first()
