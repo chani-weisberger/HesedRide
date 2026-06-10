@@ -12,7 +12,11 @@ import {
     Text,
     TouchableOpacity,
     View,
+    Platform
 } from 'react-native';
+const AsyncStorage = Platform.OS !== 'web'
+  ? require('@react-native-async-storage/async-storage').default
+  : null;
 import { VolunteerRideRequest } from '@/services/rideService';
 import * as SecureStore from 'expo-secure-store';
 
@@ -32,7 +36,27 @@ export default function VolunteerGlobalRideSummaryPage() {
 
     try {
       // 1. 🔑 שולפים מהזיכרון את הטוקן שללי שמרה בלוגין
-      const token = await SecureStore.getItemAsync('userToken');
+      // 🔑 מנגנון שליפת טוקן חכם ומוגן מפני קריסות דפדפן
+      let token: string | null = null;
+
+      if (Platform.OS === 'web') {
+        token = localStorage.getItem('userToken');
+      } else {
+        try {
+          token = await SecureStore.getItemAsync('userToken');
+        } catch (error) {
+          console.log("SecureStore not available:", error);
+        }
+        if (!token && AsyncStorage) {
+          token = await AsyncStorage.getItem('userToken');
+        }
+      }
+
+      // גיבוי לפיתוח: אם אין טוקן בכלל, נשים טוקן דמי כדי שהבקשה לא תיכשל
+      if (!token) {
+        console.warn("⚠️ לא נמצא טוקן! משתמש בטוקן זמני.");
+        token = "mock-token-fallback";
+      }
 
       const volunteerRide: VolunteerRideRequest = {
         source_location: ride.origin,
