@@ -59,8 +59,8 @@ export default function RiderMatchFoundPage() {
     }
   };
 
-  const isConfirmed = currentStatus === 'confirmed';
-  const hasRiderApproved = currentStatus === 'rider_confirmed';
+ const isConfirmed = currentStatus === 'confirmed';
+ const hasRiderApproved = currentStatus === 'rider_approved' || currentStatus === 'volunteer_approved';
 
   return (
     <ScreenWrapper>
