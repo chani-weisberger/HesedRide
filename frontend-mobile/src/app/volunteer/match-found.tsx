@@ -1,5 +1,4 @@
-// volunteer/match-found.tsx — מסך נמצאה התאמה + נסיעה פעילה
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Alert, Linking, ActivityIndicator, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import ScreenWrapper from '@/components/ScreenWrapper';
@@ -9,27 +8,37 @@ import { typography } from '@/styles/typography';
 
 export default function MatchFoundPage() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ passenger_name: string; origin: string; destination: string; ride_request_id: string; volunteer_ride_id: string; }>();
+
+  const [currentStatus, setCurrentStatus] = useState('proposed');
   const [isConfirming, setIsConfirming] = useState(false);
-  const [isRideActive, setIsRideActive] = useState(false); // ✨ מצב חדש: הנסיעה פעילה ויצאה לדרך!
   const [navigationUrl, setNavigationUrl] = useState<string | null>(null);
   const [passengerPhone, setPassengerPhone] = useState<string>('');
 
-  const params = useLocalSearchParams<{
-    passenger_name: string;
-    origin: string;
-    destination: string;
-    ride_request_id: string;
-    volunteer_ride_id: string;
-  }>();
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/api/rides/${params.volunteer_ride_id}/status?ride_type=volunteer`);
+        if (response.ok) {
+          const data = await response.json();
+          setCurrentStatus(data.status);
+          if (data.status === 'confirmed') {
+            // אם אושר ברקע על ידי הנוסע, נשלוף לינק ניווט ישירות מהסטטוס
+            // (במערכת אמיתית הלינק ייווצר כאן או יישלח מהשרת)
+          }
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    const interval = setInterval(checkStatus, 4000);
+    return () => clearInterval(interval);
+  }, [params.volunteer_ride_id]);
 
-  const passengerName = params.passenger_name || 'נוסע חסד';
-  const origin = params.origin || 'לא צוין מיקום';
-  const destination = params.destination || 'לא צוין יעד';
-
-  const handleConfirm = async () => {
+  const handleVolunteerConfirm = async () => {
     setIsConfirming(true);
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/rides/confirm', {
+      const response = await fetch('http://127.0.0.1:8000/api/rides/confirm?user_type=volunteer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -39,33 +48,27 @@ export default function MatchFoundPage() {
       });
 
       const data = await response.json();
-      setIsConfirming(false);
-
       if (response.ok && data.status === 'success') {
-        // 🎉 הצלחה! במקום אלרט מעצבן, מעבירים את המסך למצב "נסיעה פעילה"
+        setCurrentStatus(data.volunteer_status);
         setNavigationUrl(data.waze_route_url || null);
-        setPassengerPhone(data.patient_phone || 'לא צוין');
-        setIsRideActive(true);
-      } else {
-        Alert.alert('שגיאה', data.message || 'לא הצלחנו לאשר את הנסיעה.');
+        setPassengerPhone(data.patient_phone || '058-4657588');
       }
     } catch (error) {
+      Alert.alert('שגיאה', 'שגיאת תקשורת בניסיון לאשר');
+    } finally {
       setIsConfirming(false);
-      Alert.alert('שגיאה', 'שגיאת תקשורת באישור הנסיעה.');
     }
   };
 
   const handleOpenNavigation = () => {
     if (navigationUrl) {
-      if (Platform.OS === 'web') {
-        window.open(navigationUrl, '_blank'); // פתיחה חלקה ב-Web ללא חוסם פופ-אפים!
-      } else {
-        Linking.openURL(navigationUrl);
-      }
-    } else {
-      Alert.alert('שים לב', 'לא נמצא קישור ניווט תקין.');
+      if (Platform.OS === 'web') window.open(navigationUrl, '_blank');
+      else Linking.openURL(navigationUrl);
     }
   };
+
+  const isConfirmed = currentStatus === 'confirmed';
+  const hasVolunteerApproved = currentStatus === 'volunteer_confirmed';
 
   const InfoRow = ({ label, value }: { label: string; value: string }) => (
     <View style={styles.row}>
@@ -74,64 +77,38 @@ export default function MatchFoundPage() {
     </View>
   );
 
-  // 🌟 מסך ב': המתנדב אישר והוא רשמית בדרך אל המטופל!
-  if (isRideActive) {
-    return (
-      <ScreenWrapper>
-        <View style={styles.container}>
-          <Text style={styles.successBadge}>✓ נסיעה פעילה</Text>
-          <Text style={styles.title}>אתה בדרך אל {passengerName}! 🚗</Text>
-          <Text style={styles.subtitle}>תודה על חסד עצום! פרטי הנסיעה והניווט זמינים עבורך כעת:</Text>
-
-          <View style={common.card}>
-            <Text style={styles.sectionTitle}>פרטי קשר ואיסוף</Text>
-            <InfoRow label="טלפון לתיאום" value={passengerPhone} />
-            <InfoRow label="נקודת איסוף" value={origin} />
-            <InfoRow label="יעד חולה" value={destination} />
-          </View>
-
-          <View style={styles.btnGroup}>
-            <TouchableOpacity
-              style={[common.buttonPrimary, { backgroundColor: '#2ed573' }]}
-              onPress={handleOpenNavigation}
-            >
-              <Text style={common.buttonTextPrimary}>🗺️ פתח מפת ניווט (Waze / גוגל)</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.cancelBtn}
-              onPress={() => router.replace('/volunteer/volunteer-type')}
-            >
-              <Text style={{ color: colors.primaryBlue, fontWeight: '500' }}>סיום וחזרה למסך הבית</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ScreenWrapper>
-    );
-  }
-
-  // 🌟 מסך א': נמצאה התאמה, ממתין לאישור המתנדב (הסטטוס המקורי)
   return (
-    <ScreenWrapper scrollable>
+    <ScreenWrapper>
       <View style={styles.container}>
-        <Text style={styles.title}>נמצאה לך התאמה! 🎉</Text>
-        <Text style={styles.subtitle}>מתנדב יקר, נמצא נוסע במסלול שלך</Text>
-        <View style={common.divider} />
+        {isConfirmed && <Text style={styles.successBadge}>✓ נסיעה פעילה</Text>}
+        <Text style={styles.title}>{isConfirmed ? `אתה בדרך אל ${params.passenger_name}! 🚗` : 'נמצאה לך התאמה! 🎉'}</Text>
+        <Text style={styles.subtitle}>
+          {isConfirmed ? 'תודה על חסד עצום! הניווט פתוח:' : hasVolunteerApproved ? 'אישרת מצידך! ממתינים שהחולה יאשר כעת...' : 'מתנדב יקר, נמצא נוסע במסלול שלך'}
+        </Text>
 
         <View style={common.card}>
-          <Text style={styles.sectionTitle}>פרטי הנוסע והמסלול</Text>
-          <InfoRow label="שם החולה" value={passengerName} />
-          <InfoRow label="נקודת איסוף" value={origin} />
-          <InfoRow label="יעד נסיעה" value={destination} />
+          <Text style={styles.sectionTitle}>פרטי הנסיעה</Text>
+          <InfoRow label="שם החולה" value={params.passenger_name || 'נוסע חסד'} />
+          {isConfirmed && <InfoRow label="טלפון לתיאום" value={passengerPhone} />}
+          <InfoRow label="נקודת איסוף" value={params.origin || ''} />
+          <InfoRow label="יעד נסיעה" value={params.destination || ''} />
         </View>
 
         <View style={styles.btnGroup}>
-          <TouchableOpacity style={common.buttonPrimary} onPress={handleConfirm} disabled={isConfirming}>
-            {isConfirming ? <ActivityIndicator color={colors.white} /> : <Text style={common.buttonTextPrimary}>אישור נסיעה ויציאה לדרך 🤝</Text>}
-          </TouchableOpacity>
+          {!isConfirmed && !hasVolunteerApproved && (
+            <TouchableOpacity style={common.buttonPrimary} onPress={handleVolunteerConfirm} disabled={isConfirming}>
+              {isConfirming ? <ActivityIndicator color="#fff" /> : <Text style={common.buttonTextPrimary}>אישור נסיעה ומעבר לאישור חולה 🤝</Text>}
+            </TouchableOpacity>
+          )}
+
+          {isConfirmed && (
+            <TouchableOpacity style={[common.buttonPrimary, { backgroundColor: '#2ed573' }]} onPress={handleOpenNavigation}>
+              <Text style={common.buttonTextPrimary}>🗺️ פתח מפת ניווט (Waze / גוגל)</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity style={styles.cancelBtn} onPress={() => router.replace('/volunteer/volunteer-type')}>
-            <Text style={styles.cancelText}>ביטול וחזרה למסך הבית</Text>
+            <Text style={{ color: colors.primaryBlue, fontWeight: '500' }}>חזרה למסך הבית</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -150,5 +127,4 @@ const styles = StyleSheet.create({
   rowValue: { ...typography.body, fontWeight: '500' },
   btnGroup: { gap: 12, marginTop: 16 },
   cancelBtn: { alignItems: 'center', padding: 12 },
-  cancelText: { color: '#e53e3e', fontSize: 14, fontWeight: '500' },
 });
