@@ -10,6 +10,19 @@ from app.services.maps_service import generate_google_maps_link
 # Initialize the router for ride-related endpoints
 router = APIRouter(prefix="/api/rides", tags=["Rides"])
 
+
+@router.get("/{ride_id}/status")
+def get_ride_status(ride_id: int, db: Session = Depends(get_db)):
+    ride = db.query(models.RideRequest).filter_by(id=ride_id).first()
+    if not ride:
+        ride = db.query(models.VolunteerRide).filter_by(id=ride_id).first()
+
+    if not ride:
+        raise HTTPException(status_code=404, detail="נסיעה לא נמצאה")
+
+    return {"status": ride.status}
+
+
 @router.post("/create", response_model=schemas.RideRequestResponse)
 def create_ride_request(ride_data: schemas.RideRequestCreate, db: Session = Depends(get_db)):
     try:
