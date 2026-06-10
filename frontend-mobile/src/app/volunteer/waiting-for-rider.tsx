@@ -12,14 +12,34 @@ import {
     Text,
     TouchableOpacity,
     View,
+    Platform
 } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+const AsyncStorage = Platform.OS !== 'web'
+  ? require('@react-native-async-storage/async-storage').default
+  : null;
 
 export default function VolunteerWaitingForRiderPage() {
   const [isCanceling, setIsCanceling] = useState(false);
   
-  // מקבלים את ה-ID האמיתי של הנסיעה שנשלח ממסך הסיכום
+  // 🔔 השורה הזו נמחקה בטעות – החזרנו אותה כדי שהמחשב יזהה את ה-ID!
   const { volunteer_ride_id } = useLocalSearchParams<{ volunteer_ride_id: string }>();
+
+  // ✨ פונקציית עזר קטנה וחכמה לשליפת הטוקן מבלי לקרוס בדפדפן
+  const getAuthToken = async () => {
+    if (Platform.OS === 'web') {
+      return localStorage.getItem('userToken');
+    } else {
+      try {
+        let token = await SecureStore.getItemAsync('userToken');
+        if (!token && AsyncStorage) token = await AsyncStorage.getItem('userToken');
+        return token;
+      } catch (error) {
+        console.log("SecureStore error, falling back to AsyncStorage");
+        return AsyncStorage ? await AsyncStorage.getItem('userToken') : null;
+      }
+    }
+  };
 
   useEffect(() => {
     // אם אין ID (כי נכנסו לדף ישירות), לא מריצים את הלולאה סתם
@@ -31,7 +51,7 @@ export default function VolunteerWaitingForRiderPage() {
     // בדיקה אוטומטית (Polling) מול רחלי כל 4 שניות
     const checkRideStatus = async () => {
       try {
-        const token = await SecureStore.getItemAsync('userToken');
+        const token = await getAuthToken(); // ✨ משתמשים בפונקציה המוגנת החדשה
         
         const response = await fetch(`http://127.0.0.1:8000/api/rides/${volunteer_ride_id}/status?ride_type=volunteer`, {
           headers: {
@@ -68,7 +88,7 @@ export default function VolunteerWaitingForRiderPage() {
 
     setIsCanceling(true);
     try {
-      const token = await SecureStore.getItemAsync('userToken'); // ✅
+      const token = await getAuthToken(); // ✨ משתמשים בפונקציה המוגנת החדשה
       
       const response = await fetch(`http://127.0.0.1:8000/api/rides/volunteer/cancel/${volunteer_ride_id}`, {
       method: 'PATCH',
