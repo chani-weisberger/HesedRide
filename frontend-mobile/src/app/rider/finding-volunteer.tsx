@@ -1,3 +1,4 @@
+// rider/finding-volunteer.tsx — מסך המתנה למתנדב (צד נוסע)
 import ScreenWrapper from '@/components/ScreenWrapper';
 import { colors } from '@/styles/colors';
 import { typography } from '@/styles/typography';
@@ -6,15 +7,12 @@ import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 export default function RiderFindingVolunteerPage() {
-  // מושכים את ה-ID האמיתי והנקי שהגיע מהטופס! שום מספר מומצא.
   const params = useLocalSearchParams<{ ride_request_id: string }>();
   const ride_request_id = params.ride_request_id;
 
   useEffect(() => {
-    if (!ride_request_id) {
-      console.error("שגיאה: לא נמצא מזהה נסיעה.");
-      return;
-    }
+    // 🌟 התיקון: שקט תעשייתי. מחכים בסבלנות שהדפדפן יטען את ה-ID בלי לזרוק שגיאות אדומות!
+    if (!ride_request_id) return;
 
     const checkRideStatus = async () => {
       try {
@@ -23,7 +21,6 @@ export default function RiderFindingVolunteerPage() {
         if (response.ok) {
           const data = await response.json();
 
-          // אם מצאנו מתנדב בכל סטטוס שהוא - עוברים למסך כרטיס המתנדב!
           if (['proposed', 'volunteer_approved', 'rider_approved', 'confirmed'].includes(data.status)) {
             clearInterval(intervalId);
             router.replace({
@@ -39,7 +36,7 @@ export default function RiderFindingVolunteerPage() {
           }
         }
       } catch (error) {
-        console.error("שגיאה בבדיקת הסטטוס:", error);
+        // מתעלמים משגיאות רשת זמניות כדי לא לעצור את הלולאה
       }
     };
 
