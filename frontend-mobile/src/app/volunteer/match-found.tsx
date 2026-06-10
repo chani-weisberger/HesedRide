@@ -21,17 +21,15 @@ export default function MatchFoundPage() {
         const response = await fetch(`http://127.0.0.1:8000/api/rides/${params.volunteer_ride_id}/status?ride_type=volunteer`);
         if (response.ok) {
           const data = await response.json();
-          setCurrentStatus(data.status);
-          if (data.status === 'confirmed') {
-            // אם אושר ברקע על ידי הנוסע, נשלוף לינק ניווט ישירות מהסטטוס
-            // (במערכת אמיתית הלינק ייווצר כאן או יישלח מהשרת)
+          if (data.status === 'confirmed' || data.status === 'volunteer_approved' || data.status === 'rider_approved') {
+             setCurrentStatus(data.status);
           }
         }
       } catch (error) {
         console.error(error);
       }
     };
-    const interval = setInterval(checkStatus, 4000);
+    const interval = setInterval(checkStatus, 3000);
     return () => clearInterval(interval);
   }, [params.volunteer_ride_id]);
 
@@ -49,12 +47,15 @@ export default function MatchFoundPage() {
 
       const data = await response.json();
       if (response.ok && data.status === 'success') {
-        setCurrentStatus(data.volunteer_status);
+        // 🌟 הנה התיקון הקריטי שמנע מהמסך לזוז!
+        setCurrentStatus(data.ride_status || 'volunteer_approved');
         setNavigationUrl(data.waze_route_url || null);
         setPassengerPhone(data.patient_phone || '058-4657588');
+      } else {
+         Alert.alert('שגיאה', 'לא ניתן לאשר את הנסיעה');
       }
     } catch (error) {
-      Alert.alert('שגיאה', 'שגיאת תקשורת בניסיון לאשר');
+      Alert.alert('שגיאה', 'שגיאת תקשורת');
     } finally {
       setIsConfirming(false);
     }
@@ -64,11 +65,13 @@ export default function MatchFoundPage() {
     if (navigationUrl) {
       if (Platform.OS === 'web') window.open(navigationUrl, '_blank');
       else Linking.openURL(navigationUrl);
+    } else {
+      Alert.alert('שים לב', 'ניווט עדיין לא זמין, ממתין לאישור נוסע');
     }
   };
 
   const isConfirmed = currentStatus === 'confirmed';
-  const hasVolunteerApproved = currentStatus === 'volunteer_confirmed';
+  const hasVolunteerApproved = currentStatus === 'volunteer_approved';
 
   const InfoRow = ({ label, value }: { label: string; value: string }) => (
     <View style={styles.row}>
@@ -83,7 +86,7 @@ export default function MatchFoundPage() {
         {isConfirmed && <Text style={styles.successBadge}>✓ נסיעה פעילה</Text>}
         <Text style={styles.title}>{isConfirmed ? `אתה בדרך אל ${params.passenger_name}! 🚗` : 'נמצאה לך התאמה! 🎉'}</Text>
         <Text style={styles.subtitle}>
-          {isConfirmed ? 'תודה על חסד עצום! הניווט פתוח:' : hasVolunteerApproved ? 'אישרת מצידך! ממתינים שהחולה יאשר כעת...' : 'מתנדב יקר, נמצא נוסע במסלול שלך'}
+          {isConfirmed ? 'תודה על חסד עצום! הניווט פתוח עבורך:' : hasVolunteerApproved ? 'אישרת מצידך! ממתינים שהחולה יאשר...' : 'מתנדב יקר, נמצא נוסע במסלול שלך'}
         </Text>
 
         <View style={common.card}>

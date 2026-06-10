@@ -7,13 +7,7 @@ import { typography } from '@/styles/typography';
 
 export default function RiderMatchFoundPage() {
   const router = useRouter();
-  const params = useLocalSearchParams<{
-    ride_request_id: string;
-    ride_status: string; 
-    volunteer_name: string;
-    volunteer_phone: string;
-    volunteer_car: string;
-  }>();
+  const params = useLocalSearchParams<{ ride_request_id: string; ride_status: string; volunteer_name: string; volunteer_phone: string; volunteer_car: string; }>();
 
   const [currentStatus, setCurrentStatus] = useState(params.ride_status || 'proposed');
   const [isConfirming, setIsConfirming] = useState(false);
@@ -24,22 +18,29 @@ export default function RiderMatchFoundPage() {
         const response = await fetch(`http://127.0.0.1:8000/api/rides/${params.ride_request_id}/status?ride_type=request`);
         if (response.ok) {
           const data = await response.json();
-          setCurrentStatus(data.status);
+          if (data.status === 'confirmed' || data.status === 'volunteer_approved' || data.status === 'rider_approved') {
+             setCurrentStatus(data.status);
+          }
         }
       } catch (error) {
         console.error(error);
       }
     };
-    const interval = setInterval(checkStatus, 4000);
+    const interval = setInterval(checkStatus, 3000);
     return () => clearInterval(interval);
   }, [params.ride_request_id]);
 
   const handleRiderConfirm = async () => {
     setIsConfirming(true);
     try {
-      // מוצאים את ה-Volunteer ID מהסטטוס
       const statusRes = await fetch(`http://127.0.0.1:8000/api/rides/${params.ride_request_id}/status?ride_type=request`);
       const statusData = await statusRes.json();
+
+      if (!statusData.volunteer_ride_id) {
+         Alert.alert('שגיאה', 'לא נמצא מזהה מתנדב לאישור');
+         setIsConfirming(false);
+         return;
+      }
 
       const response = await fetch(`http://127.0.0.1:8000/api/rides/confirm?user_type=rider`, {
         method: 'POST',
@@ -49,8 +50,12 @@ export default function RiderMatchFoundPage() {
           ride_request_id: Number(params.ride_request_id)
         })
       });
-      if (response.ok) {
-        setCurrentStatus('rider_confirmed');
+
+      const data = await response.json();
+      if (response.ok && data.status === 'success') {
+        setCurrentStatus(data.ride_status || 'rider_approved');
+      } else {
+        Alert.alert('שגיאה', 'לא ניתן לאשר מול השרת');
       }
     } catch (error) {
       Alert.alert('שגיאה', 'תקשורת נכשלה');
@@ -59,8 +64,8 @@ export default function RiderMatchFoundPage() {
     }
   };
 
- const isConfirmed = currentStatus === 'confirmed';
- const hasRiderApproved = currentStatus === 'rider_approved' || currentStatus === 'volunteer_approved';
+  const isConfirmed = currentStatus === 'confirmed';
+  const hasRiderApproved = currentStatus === 'rider_approved' || currentStatus === 'volunteer_approved';
 
   return (
     <ScreenWrapper>
@@ -71,14 +76,14 @@ export default function RiderMatchFoundPage() {
 
         <Text style={styles.title}>{isConfirmed ? 'המתנדב בדרך אליך!' : 'נמצא מתנדב עבורך!'}</Text>
         <Text style={styles.subtitle}>
-          {isConfirmed ? 'נסיעת החסד אושרה סופית על ידי שניכם!' : hasRiderApproved ? 'אישרת מצידך! ממתין לאישור סופי מהמתנדב...' : 'המתנדב ממתין לאישורך המקביל כדי לצאת לדרך'}
+          {isConfirmed ? 'נסיעת החסד אושרה סופית על ידי שניכם!' : hasRiderApproved ? 'אישרת מצידך! ממתין לאישור סופי מהמתנדב...' : 'המתנדב ממתין לאישורך כדי לצאת לדרך'}
         </Text>
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>פרטי הנהג והרכב</Text>
           <View style={styles.row}>
             <Text style={styles.rowValue}>{params.volunteer_name}</Text>
-            <Text style={styles.rowLabel}>שם המתנדב</Text>
+            <Text style={styles.rowLabel}>שם</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.rowValue}>{params.volunteer_phone}</Text>
@@ -90,7 +95,7 @@ export default function RiderMatchFoundPage() {
           </View>
         </View>
 
-        {!isConfirmed && !hasRiderApproved && (
+        {!isConfirmed && currentStatus !== 'rider_approved' && (
           <TouchableOpacity style={styles.primaryButton} onPress={handleRiderConfirm} disabled={isConfirming}>
             {isConfirming ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>🤝 אשר נסיעה חגיגית ויציאה לדרך</Text>}
           </TouchableOpacity>
