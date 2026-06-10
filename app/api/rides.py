@@ -109,32 +109,19 @@ def cancel_volunteer_ride(volunteer_ride_id: int, db: Session = Depends(get_db))
 
 
 @router.post("/confirm")
-def confirm_ride_match(confirm_data: schemas.RideConfirmRequest, user_type: str, db: Session = Depends(get_db)):
+def confirm_ride_match(confirm_data: schemas.RideConfirmRequest, db: Session = Depends(get_db)):
     try:
         volunteer_ride = db.query(models.VolunteerRide).filter_by(id=confirm_data.volunteer_ride_id).first()
         ride_request = db.query(models.RideRequest).filter_by(id=confirm_data.ride_request_id).first()
 
         if not volunteer_ride or not ride_request:
-            raise HTTPException(status_code=404, detail="הנסיעה לא נמצאה")
+            raise HTTPException(status_code=404, detail="הנסיעה לא encontrada")
 
-        # לוגיקת אישור דו-צדדי פשוטה ומנצחת
-        if user_type == "volunteer":
-            if ride_request.status == "rider_approved":
-                volunteer_ride.status = "confirmed"
-                ride_request.status = "confirmed"
-            else:
-                volunteer_ride.status = "volunteer_approved"
-                ride_request.status = "volunteer_approved"  # משקף לצד השני שהמתנדב כבר זז
-
-        elif user_type in ["rider", "passenger", "request"]:
-            if volunteer_ride.status == "volunteer_approved":
-                volunteer_ride.status = "confirmed"
-                ride_request.status = "confirmed"
-            else:
-                ride_request.status = "rider_approved"
-                volunteer_ride.status = "rider_approved"
-
+        # שינוי ישיר לסטטוס מאושר - המתנדב קובע!
+        volunteer_ride.status = "confirmed"
+        ride_request.status = "confirmed"
         db.commit()
+
         waze_link = generate_google_maps_link(volunteer_ride, ride_request)
         return {
             "status": "success",
@@ -151,39 +138,37 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
     try:
         if ride_type == "volunteer":
             ride = db.query(models.VolunteerRide).filter_by(id=ride_id).first()
-            if not ride:
-                raise HTTPException(status_code=404, detail="נסיעת המתנדב לא נמצאה")
+            if not ride: raise HTTPException(status_code=404, detail="לא נמצא")
 
             if ride.status == "pending":
-                matched_passenger = find_best_match(ride, db)
-                if matched_passenger:
-                    matched_passenger.status = "proposed"
+                matched = find_best_match(ride, db)
+                if matched:
+                    matched.status = "proposed"
                     ride.status = "proposed"
-                    ride.matched_request_id = matched_passenger.id
+                    ride.matched_request_id = matched.id
                     db.commit()
 
-            if ride.status in ["proposed", "volunteer_approved", "rider_approved", "confirmed"]:
+            if ride.status in ["proposed", "confirmed"]:
                 passenger = db.query(models.RideRequest).filter_by(id=ride.matched_request_id).first()
-                return {
-                    "status": ride.status,
-                    "ride_request_id": passenger.id if passenger else None,
-                    "passenger_name": passenger.patient_name if passenger else "נוסע חסד",
-                    "origin": passenger.origin if passenger else "",
-                    "destination": passenger.destination if passenger else ""
-                }
-
+                if passenger:
+                    return {
+                        "status": ride.status,
+                        "ride_request_id": passenger.id,
+                        "passenger_name": passenger.patient_name,
+                        "origin": passenger.origin,
+                        "destination": passenger.destination
+                    }
             return {"status": ride.status}
 
         elif ride_type in ["passenger", "request"]:
             ride = db.query(models.RideRequest).filter_by(id=ride_id).first()
-            if not ride:
-                raise HTTPException(status_code=404, detail="בקשת הנוסע לא נמצאה")
+            if not ride: raise HTTPException(status_code=404, detail="לא נמצא")
 
-            if ride.status in ["proposed", "volunteer_approved", "rider_approved", "confirmed"]:
+            # הנוסע פשוט בודק אם הסטטוס הפך ל-confirmed (המתנדב אישר!)
+            if ride.status == "confirmed":
                 volunteer = db.query(models.VolunteerRide).filter_by(matched_request_id=ride.id).first()
                 return {
-                    "status": ride.status,
-                    "volunteer_ride_id": volunteer.id if volunteer else None,
+                    "status": "confirmed",
                     "volunteer_name": "ישראל ישראלי",
                     "volunteer_phone": "050-1234567",
                     "volunteer_car": "טויוטה קורולה לבנה"
