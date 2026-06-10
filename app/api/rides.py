@@ -177,7 +177,8 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
             # 3. החזרת הסטטוס הנוכחי
             return {"status": ride.status}
 
-        elif ride_type == "passenger":
+
+        elif ride_type == "passenger" or ride_type == "request":
             ride = db.query(models.RideRequest).filter_by(id=ride_id).first()
             if not ride:
                 raise HTTPException(status_code=404, detail="בקשת הנוסע לא נמצאה")
