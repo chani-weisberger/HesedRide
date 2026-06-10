@@ -33,7 +33,7 @@ export default function VolunteerWaitingForRiderPage() {
       try {
         const token = await SecureStore.getItemAsync('userToken');
         
-        const response = await fetch(`http://127.0.0.1:8000/api/rides/${volunteer_ride_id}/status`, {
+        const response = await fetch(`http://127.0.0.1:8000/api/rides/${volunteer_ride_id}/status?ride_type=volunteer`, {
           headers: {
             'Authorization': `Bearer ${token}` // שולחים את הטוקן גם כאן
           }
@@ -71,7 +71,7 @@ export default function VolunteerWaitingForRiderPage() {
       const token = await SecureStore.getItemAsync('userToken'); // ✅
       
       const response = await fetch(`http://127.0.0.1:8000/api/rides/volunteer/cancel/${volunteer_ride_id}`, {
-        method: 'POST',
+      method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`
         }
