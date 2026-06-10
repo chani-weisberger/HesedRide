@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, Platform, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import ScreenWrapper from '@/components/ScreenWrapper';
 import { colors } from '@/styles/colors';
@@ -7,16 +7,54 @@ import { typography } from '@/styles/typography';
 
 export default function RiderMatchFoundPage() {
   const router = useRouter();
-  const params = useLocalSearchParams<{
-    ride_request_id: string;
-    ride_status: string;
-    volunteer_name: string;
-    volunteer_phone: string;
-    volunteer_car: string;
-  }>();
+  const params = useLocalSearchParams<{ ride_request_id: string; volunteer_name: string; volunteer_phone: string; volunteer_car: string; }>();
 
-  // נבדוק האם הנסיעה כבר אושרה סופית על ידי שני הצדדים
-  const isConfirmed = params.ride_status === 'confirmed';
+  const [currentStatus, setCurrentStatus] = useState('proposed');
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/api/rides/${params.ride_request_id}/status?ride_type=request`);
+        if (response.ok) {
+          const data = await response.json();
+          setCurrentStatus(data.status);
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    const interval = setInterval(checkStatus, 4000);
+    return () => clearInterval(interval);
+  }, [params.ride_request_id]);
+
+  const handleRiderConfirm = async () => {
+    setIsConfirming(true);
+    try {
+      // מוצאים את ה-Volunteer ID מהסטטוס
+      const statusRes = await fetch(`http://127.0.0.1:8000/api/rides/${params.ride_request_id}/status?ride_type=request`);
+      const statusData = await statusRes.json();
+
+      const response = await fetch(`http://127.0.0.1:8000/api/rides/confirm?user_type=rider`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          volunteer_ride_id: statusData.volunteer_ride_id,
+          ride_request_id: Number(params.ride_request_id)
+        })
+      });
+      if (response.ok) {
+        setCurrentStatus('rider_confirmed');
+      }
+    } catch (error) {
+      Alert.alert('שגיאה', 'תקשורת נכשלה');
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  const isConfirmed = currentStatus === 'confirmed';
+  const hasRiderApproved = currentStatus === 'rider_confirmed';
 
   return (
     <ScreenWrapper>
@@ -27,44 +65,33 @@ export default function RiderMatchFoundPage() {
 
         <Text style={styles.title}>{isConfirmed ? 'המתנדב בדרך אליך!' : 'נמצא מתנדב עבורך!'}</Text>
         <Text style={styles.subtitle}>
-          {isConfirmed ? 'נסיעת החסד אושרה סופית. המתנדב יצא לכיוונך.' : 'המתנדב ממתין לאישורך המקביל כדי לצאת לדרך'}
+          {isConfirmed ? 'נסיעת החסד אושרה סופית על ידי שניכם!' : hasRiderApproved ? 'אישרת מצידך! ממתין לאישור סופי מהמתנדב...' : 'המתנדב ממתין לאישורך המקביל כדי לצאת לדרך'}
         </Text>
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>פרטי הנהג והרכב</Text>
-
           <View style={styles.row}>
             <Text style={styles.rowValue}>{params.volunteer_name}</Text>
             <Text style={styles.rowLabel}>שם המתנדב</Text>
           </View>
-
           <View style={styles.row}>
             <Text style={styles.rowValue}>{params.volunteer_phone}</Text>
-            <Text style={styles.rowLabel}>טלפון ליצירת קשר</Text>
+            <Text style={styles.rowLabel}>טלפון</Text>
           </View>
-
           <View style={styles.row}>
             <Text style={styles.rowValue}>{params.volunteer_car}</Text>
-            <Text style={styles.rowLabel}>סוג הרכב</Text>
+            <Text style={styles.rowLabel}>רכב</Text>
           </View>
         </View>
 
-        {!isConfirmed ? (
-          <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={() => {
-              Alert.alert('נסיעה אושרה! ❤️', 'תודה על האישור. הודעה נשלחה למתנדב והוא בדרך אליך.', [
-                { text: 'מעולה', onPress: () => router.replace('/rider/ride-type') }
-              ]);
-            }}
-          >
-            <Text style={styles.buttonText}>🤝 אשר נסיעה חגיגית ויציאה לדרך</Text>
+        {!isConfirmed && !hasRiderApproved && (
+          <TouchableOpacity style={styles.primaryButton} onPress={handleRiderConfirm} disabled={isConfirming}>
+            {isConfirming ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>🤝 אשר נסיעה חגיגית ויציאה לדרך</Text>}
           </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: '#2ed573' }]}
-            onPress={() => router.replace('/rider/ride-type')}
-          >
+        )}
+
+        {isConfirmed && (
+          <TouchableOpacity style={[styles.primaryButton, { backgroundColor: '#2ed573' }]} onPress={() => router.replace('/rider/ride-type')}>
             <Text style={styles.buttonText}>חזרה למסך הבית</Text>
           </TouchableOpacity>
         )}
