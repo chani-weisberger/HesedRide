@@ -48,7 +48,7 @@ def find_best_match(v_ride: VolunteerRide, db: Session):
         # Ensure a valid calculation was made (not None) before verifying
         # that the extra driving time is within the volunteer's allowed grace period.
         if deviation_minutes is not None and deviation_minutes <= v_ride.grace_minutes:
-            
+            v_ride.matched_request_id = request.id
             return request  # Successfully returning the passenger you robbed
 
     return None  # If we've gone through everyone and no one fits within the grace period
