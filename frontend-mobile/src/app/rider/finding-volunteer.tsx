@@ -54,13 +54,11 @@ export default function FindingVolunteerPage() {
 
     const interval = setInterval(async () => {
       try {
-        const response = await fetch(
-          `http://127.0.0.1:8000/api/rides/${rideId}/status`
-        );
+        const response = await fetch(`http://127.0.0.1:8000/api/rides/${rideId}/status?ride_type=request`)
         const data = await response.json();
 
         // אם נמצא מתנדב — עוברים לדף האישור
-        if (data.status === 'matched') {
+        if (data.status === 'proposed') {
           clearInterval(interval);
           router.replace({
             pathname: '/rider/match-found' as any,
