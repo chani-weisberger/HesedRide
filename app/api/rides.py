@@ -109,7 +109,7 @@ def cancel_volunteer_ride(volunteer_ride_id: int, db: Session = Depends(get_db))
 
 
 @router.post("/confirm")
-def confirm_ride_match(confirm_data: schemas.RideConfirmRequest, user_type: str, db: Session = Depends(get_db)):
+def confirm_ride_match(confirm_data: schemas.RideConfirmRequest, user_type: str = None, db: Session = Depends(get_db)):
     try:
         volunteer_ride = db.query(models.VolunteerRide).filter_by(id=confirm_data.volunteer_ride_id).first()
         ride_request = db.query(models.RideRequest).filter_by(id=confirm_data.ride_request_id).first()
@@ -117,37 +117,19 @@ def confirm_ride_match(confirm_data: schemas.RideConfirmRequest, user_type: str,
         if not volunteer_ride or not ride_request:
             raise HTTPException(status_code=404, detail="הנסיעה לא נמצאה")
 
-        # ✨ הלוגיקה המנצחת לאישור דו-צדדי!
-        if user_type == "volunteer":
-            if ride_request.status == "rider_approved":
-                volunteer_ride.status = "confirmed"
-                ride_request.status = "confirmed"
-            else:
-                volunteer_ride.status = "volunteer_approved"
-                ride_request.status = "volunteer_approved"
-
-        elif user_type in ["rider", "passenger", "request"]:
-            if volunteer_ride.status == "volunteer_approved":
-                volunteer_ride.status = "confirmed"
-                ride_request.status = "confirmed"
-            else:
-                ride_request.status = "rider_approved"
-                volunteer_ride.status = "rider_approved"
-
+        # 🔥 זרימה חד-כיוונית מושלמת: המתנדב מאשר = הנסיעה מאושרת סופית ויוצאת לדרך!
+        volunteer_ride.status = "confirmed"
+        ride_request.status = "confirmed"
         db.commit()
 
-        # הניווט נשלח רק אם שני הצדדים אישרו סופית
-        waze_link = generate_google_maps_link(volunteer_ride,
-                                              ride_request) if volunteer_ride.status == "confirmed" else None
+        waze_link = generate_google_maps_link(volunteer_ride, ride_request)
 
         return {
             "status": "success",
-            "ride_status": volunteer_ride.status,
+            "ride_status": "confirmed",
             "waze_route_url": waze_link,
             "patient_phone": ride_request.patient_phone
         }
-    except HTTPException as he:
-        raise he  # 🌟 קריטי כדי ששגיאות 404 לא יהפכו ל-400!
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
