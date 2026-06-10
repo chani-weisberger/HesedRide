@@ -8,7 +8,11 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Platform
 } from 'react-native';
+const AsyncStorage = Platform.OS !== 'web'
+  ? require('@react-native-async-storage/async-storage').default
+  : null;
 import { router } from 'expo-router';
 import ScreenWrapper from '@/components/ScreenWrapper';
 import { colors } from '@/styles/colors';
@@ -40,7 +44,20 @@ export default function VolunteerAuthPage() {
 
     if (response.ok) {
   if (data.access_token) {
-  await SecureStore.setItemAsync('userToken', data.access_token);
+  // ✨ בדיקה: אם אנחנו בדפדפן, נשמור ב-localStorage של הדפדפן
+      if (Platform.OS === 'web') {
+        localStorage.setItem('userToken', data.access_token || data.token);
+      } else {
+        // אם אנחנו בטלפון, נשתמש ב-SecureStore המאובטח כרגיל
+        try {
+          await SecureStore.setItemAsync('userToken', data.access_token || data.token);
+        } catch (e) {
+          console.log("SecureStore not available, trying AsyncStorage");
+          if (AsyncStorage) {
+            await AsyncStorage.setItem('userToken', data.access_token || data.token);
+          }
+        }
+      }
 }
   router.replace('/volunteer/volunteer-type' as any);
 } else {
