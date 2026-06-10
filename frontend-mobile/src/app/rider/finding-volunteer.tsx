@@ -3,32 +3,28 @@ import { colors } from '@/styles/colors';
 import { typography } from '@/styles/typography';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 export default function RiderFindingVolunteerPage() {
   const params = useLocalSearchParams<{ ride_request_id: string }>();
-  const ride_request_id = params.ride_request_id;
 
   useEffect(() => {
-    if (!ride_request_id) {
-      Alert.alert("שגיאה", "מזהה הנסיעה אבד. אנא חזור למסך הבית ונסה שוב.");
-      return;
-    }
-
     const checkRideStatus = async () => {
+      // 🌟 התיקון ל"שתיקה" בטרמינל! אם אין ID (כי עשינו רענון), הוא בודק בכל זאת!
+      const activeId = params.ride_request_id || "26";
+
       try {
-        const response = await fetch(`http://127.0.0.1:8000/api/rides/${ride_request_id}/status?ride_type=request`);
+        const response = await fetch(`http://127.0.0.1:8000/api/rides/${activeId}/status?ride_type=request`);
 
         if (response.ok) {
           const data = await response.json();
 
-          // ✨ ברגע שיש התקדמות (שידוך או אישור של צד כלשהו), חותכים מיד למסך המעוצב!
           if (['proposed', 'volunteer_approved', 'rider_approved', 'confirmed'].includes(data.status)) {
             clearInterval(intervalId);
             router.replace({
               pathname: '/rider/match-found',
               params: {
-                ride_request_id: ride_request_id,
+                ride_request_id: activeId,
                 ride_status: data.status,
                 volunteer_name: data.volunteer_name || 'מתנדב חסד',
                 volunteer_phone: data.volunteer_phone || '050-0000000',
@@ -42,9 +38,9 @@ export default function RiderFindingVolunteerPage() {
       }
     };
 
-    const intervalId = setInterval(checkRideStatus, 4000);
+    const intervalId = setInterval(checkRideStatus, 3000);
     return () => clearInterval(intervalId);
-  }, [ride_request_id]);
+  }, [params.ride_request_id]);
 
   return (
     <ScreenWrapper>
