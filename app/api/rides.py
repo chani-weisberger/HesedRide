@@ -163,7 +163,6 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
                 raise HTTPException(status_code=404, detail="נסיעת המתנדב לא נמצאה")
 
             # 2. אם הסטטוס עדיין בחיפוש (pending), ננסה להריץ שוב את אלגוריתם השידוך
-            # (במקרה שנוסע חדש נרשם למערכת בזמן שהמתנדב המתין במסך!)
             if ride.status == "pending":
                 matched_passenger = find_best_match(ride, db)
                 if matched_passenger:
@@ -172,14 +171,18 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
                     db.commit()
                     return {"status": "proposed"}
 
-                # ⏱️ מנגנון טיימאאוט: אם עבר זמן מסוים ועדיין אין אף נוסע במסלול
-                # (נניח שעברו יותר מ-45 שניות מאז שהמתנדב התחיל לחפש)
+                # ⏱️ מנגנון טיימאאוט חסין לחלוטין משגיאות אזורי זמן - מיושר נכון מחוץ ל-if!
                 if hasattr(ride, 'created_at') and ride.created_at:
-                    # חישוב השניות שעברו מאז יצירת הנסיעה
-                    seconds_passed = (datetime.now(timezone.utc) - ride.created_at.replace(
-                        tzinfo=timezone.utc)).total_seconds()
+                    from datetime import datetime, timezone
 
-                    if seconds_passed > 45:  # הגדרת זמן לבדיקה שלכן
+                    # הופכים את שני הזמנים ל-UTC Aware בצורה מפורשת
+                    ride_time = ride.created_at.astimezone(timezone.utc) if ride.created_at.tzinfo else ride.created_at.replace(tzinfo=timezone.utc)
+                    now_time = datetime.now(timezone.utc)
+
+                    seconds_passed = (now_time - ride_time).total_seconds()
+                    print(f"[DEBUG] Ride {ride_id} is waiting for {int(seconds_passed)} seconds...")
+
+                    if seconds_passed > 45:  # זמן ההמתנה המקסימלי בשניות
                         ride.status = "no_match"
                         db.commit()
                         return {"status": "no_match_available"}
@@ -188,7 +191,6 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
             return {"status": ride.status}
 
         elif ride_type == "passenger":
-            # כאן תוכלו להוסיף לוגיקה מקבילה לנוסע בהמשך במידת הצורך
             ride = db.query(models.RideRequest).filter_by(id=ride_id).first()
             if not ride:
                 raise HTTPException(status_code=404, detail="בקשת הנוסע לא נמצאה")
