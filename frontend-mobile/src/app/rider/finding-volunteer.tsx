@@ -1,3 +1,4 @@
+// rider/finding-volunteer.tsx
 import ScreenWrapper from '@/components/ScreenWrapper';
 import { colors } from '@/styles/colors';
 import { typography } from '@/styles/typography';
@@ -13,11 +14,14 @@ export default function RiderFindingVolunteerPage() {
 
     const checkRideStatus = async () => {
       try {
-        const response = await fetch(`http://127.0.0.1:8000/api/rides/${params.ride_request_id}/status?ride_type=request`);
+        // 🔥 התיקון המנצח: מוסיפים חותמת זמן ל-URL כדי שהדפדפן בחיים לא יקפיא את התשובה!
+        const url = `http://127.0.0.1:8000/api/rides/${params.ride_request_id}/status?ride_type=request&t=${Date.now()}`;
+        const response = await fetch(url);
+
         if (response.ok) {
           const data = await response.json();
 
-          // 🔥 ברגע שהמתנדב אישר (confirmed), קופצים למסך פרטי הנהג!
+          // ברגע שהמתנדב אישר (confirmed), קופצים אוטומטית למסך הירוק!
           if (data.status === 'confirmed') {
             clearInterval(intervalId);
             router.replace({
@@ -30,9 +34,12 @@ export default function RiderFindingVolunteerPage() {
             });
           }
         }
-      } catch (error) {}
+      } catch (error) {
+        console.error("שגיאת רשת זמנית:", error);
+      }
     };
 
+    // בדיקה כל 3 שניות
     const intervalId = setInterval(checkRideStatus, 3000);
     return () => clearInterval(intervalId);
   }, [params.ride_request_id]);
