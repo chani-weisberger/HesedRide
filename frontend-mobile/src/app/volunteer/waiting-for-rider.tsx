@@ -14,10 +14,12 @@ import {
     TouchableOpacity
 } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-
+// ייבוא בטוח ל-AsyncStorage
 const AsyncStorage = Platform.OS !== 'web'
   ? require('@react-native-async-storage/async-storage').default
   : null;
+
+
 
 export default function VolunteerWaitingForRiderPage() {
   const { volunteer_ride_id, match_found, match_details, rideData } = useLocalSearchParams<{
@@ -39,44 +41,62 @@ export default function VolunteerWaitingForRiderPage() {
     } catch (error) { return AsyncStorage ? await AsyncStorage.getItem('userToken') : null; }
   };
 
-  const createRideAndStartPolling = async (rideJson: string) => {
-    try {
-      const ride = JSON.parse(rideJson);
-      const token = await getAuthToken();
-      const response = await fetch('http://127.0.0.1:8000/api/rides/volunteer/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-            source_location: ride.origin,
-            destination_location: ride.destination,
-            available_seats: ride.seats_count,
-            grace_minutes: Number(ride.hesed_minutes),
-        })
-      });
-
-      const data = await response.json();
-      if (response.ok) {
-        setIsCreating(false);
-        // אם השרת מצא התאמה מיידית, נעבור ישר למסך ההתאמה
-        if (data.match_found) {
-            router.replace({
-                pathname: '/volunteer/match-found',
-                params: { ...data.match_details, volunteer_ride_id: data.volunteer_ride_id }
-            });
-        } else {
-            // אם לא, נמשיך לפוללינג הרגיל עם ה-ID שקיבלנו (נצטרך לרענן את ה-URL או להמשיך לוגית)
-            // כאן נשתמש ב-ID החדש כדי להמשיך לבדוק
-            startPollingFlow(data.volunteer_ride_id);
-        }
+ const createRideAndStartPolling = async (rideJson: string) => {
+  try {
+    const ride = JSON.parse(rideJson);
+    const token = await getAuthToken();
+    let userId = null;
+      if (Platform.OS === 'web') {
+        userId = localStorage.getItem('userId');
       } else {
-        Alert.alert('שגיאה', 'לא הצלחנו ליצור את הנסיעה');
-        router.back();
+        userId = await SecureStore.getItemAsync('userId');
       }
-    } catch (e) {
-      Alert.alert('שגיאה', 'בעיית תקשורת');
-      router.back();
+
+    // בדיקה קריטית: האם יש לנו ID?
+    if (!userId) {
+      Alert.alert('שגיאה', 'לא נמצא מזהה משתמש. אנא התחברי מחדש.');
+      router.replace('/volunteer/login');
+      return;
     }
-  };
+
+    const response = await fetch('http://127.0.0.1:8000/api/rides/volunteer/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({
+          source_location: ride.origin,
+          destination_location: ride.destination,
+          available_seats: Number(ride.seats_count),
+          grace_minutes: Number(ride.hesed_minutes),
+          volunteer_id: Number(userId),
+      })
+    });
+
+    // נקודה חשובה: נדפיס את השגיאה אם השרת מחזיר אחת
+    if (!response.ok) {
+        const errorData = await response.json();
+        console.log("Server Error Details:", errorData);
+        Alert.alert('שגיאה', errorData.detail || 'לא הצלחנו ליצור את הנסיעה');
+        router.back();
+        return;
+    }
+
+    const data = await response.json();
+    setIsCreating(false);
+
+    if (data.match_found) {
+        router.replace({
+            pathname: '/volunteer/match-found',
+            params: { ...data.match_details, volunteer_ride_id: data.volunteer_ride_id }
+        });
+    } else {
+        startPollingFlow(data.volunteer_ride_id);
+    }
+  } catch (e) {
+    console.log("Communication Error:", e);
+    Alert.alert('שגיאה', 'בעיית תקשורת');
+    router.back();
+  }
+};
 
   const startPollingFlow = (rideId: string) => {
     let isMatchFound = false;
