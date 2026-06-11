@@ -39,3 +39,5 @@ class VolunteerRide(Base):
     created_at = Column(DateTime, default=func.now())
     matched_request_id = Column(Integer, ForeignKey("ride_requests.id"), nullable=True)
     matched_request = relationship("RideRequest", backref="matched_volunteer")
+    volunteer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    volunteer = relationship("User", backref="volunteer_rides")

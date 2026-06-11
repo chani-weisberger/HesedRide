@@ -36,6 +36,12 @@ def create_ride_request(ride_data: schemas.RideRequestCreate, db: Session = Depe
 @router.post("/volunteer/create")
 def create_volunteer_ride(volunteer_data: schemas.VolunteerRideCreate, db: Session = Depends(get_db)):
     try:
+
+        user = db.query(models.User).filter(models.User.id == volunteer_data.volunteer_id).first()
+        if not user:
+            raise HTTPException(status_code=400,
+                                detail=f"משתמש עם ID {volunteer_data.volunteer_id} לא נמצא במסד הנתונים")
+
         # 1. Mapping the data from the frontend and filling in the new volunteer table
         new_volunteer_ride = models.VolunteerRide(**volunteer_data.model_dump())
 
@@ -79,8 +85,13 @@ def create_volunteer_ride(volunteer_data: schemas.VolunteerRideCreate, db: Sessi
             "match_details": None
         }
 
+
     except Exception as e:
+
         db.rollback()
+
+        print(f"DEBUG ERROR: {str(e)}")
+
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -170,12 +181,23 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
                 raise HTTPException(status_code=404, detail="בקשת הנוסע לא נמצאה")
 
             if ride.status in ["proposed", "volunteer_approved", "rider_approved", "confirmed"]:
-                volunteer = db.query(models.VolunteerRide).filter_by(matched_request_id=ride.id).first()
+                volunteer_ride = db.query(models.VolunteerRide).filter_by(matched_request_id=ride.id).first()
+
+                # מוודאים שנסיעת ההתנדבות קיימת ושיש לה ID של מתנדב
+                if not volunteer_ride or not volunteer_ride.volunteer_id:
+                    raise HTTPException(status_code=404, detail="פרטי ההתנדבות חסרים")
+
+
+                volunteer_user = db.query(models.User).filter_by(id=volunteer_ride.volunteer_id).first()
+
+                if not volunteer_user:
+                    raise HTTPException(status_code=404, detail="המתנדב לא נמצא במסד הנתונים")
+
                 return {
                     "status": ride.status,
-                    "volunteer_ride_id": volunteer.id if volunteer else None,
-                    "volunteer_name": "ישראל ישראלי",
-                    "volunteer_phone": "050-1234567",
+                    "volunteer_ride_id": volunteer_ride.id,
+                    "volunteer_name": volunteer_user.full_name,
+                    "volunteer_phone": volunteer_user.phone_number,
                 }
 
             return {"status": ride.status}

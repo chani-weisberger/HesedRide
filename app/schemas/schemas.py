@@ -44,6 +44,7 @@ class VolunteerRideCreate(BaseModel):
     destination_location: str
     available_seats: int
     grace_minutes: int
+    volunteer_id: int
 
 class VolunteerRideResponse(VolunteerRideCreate):
     id: int

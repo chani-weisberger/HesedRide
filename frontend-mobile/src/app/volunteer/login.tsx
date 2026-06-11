@@ -44,7 +44,14 @@ export default function VolunteerAuthPage() {
 
     if (response.ok) {
   if (data.access_token) {
-  // ✨ בדיקה: אם אנחנו בדפדפן, נשמור ב-localStorage של הדפדפן
+      if (data.user && data.user.id) {
+        if (Platform.OS === 'web') {
+            localStorage.setItem('userId', String(data.user.id));
+        } else if (SecureStore) {
+            await SecureStore.setItemAsync('userId', String(data.user.id));
+        }
+      }
+      // ✨ בדיקה: אם אנחנו בדפדפן, נשמור ב-localStorage של הדפדפן
       if (Platform.OS === 'web') {
         localStorage.setItem('userToken', data.access_token || data.token);
       } else {
