@@ -1,3 +1,6 @@
+from datetime import datetime, timezone
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.utils import find_best_match
@@ -9,18 +12,6 @@ from app.services.maps_service import generate_google_maps_link
 
 # Initialize the router for ride-related endpoints
 router = APIRouter(prefix="/api/rides", tags=["Rides"])
-
-
-@router.get("/{ride_id}/status")
-def get_ride_status(ride_id: int, db: Session = Depends(get_db)):
-    ride = db.query(models.RideRequest).filter_by(id=ride_id).first()
-    if not ride:
-        ride = db.query(models.VolunteerRide).filter_by(id=ride_id).first()
-
-    if not ride:
-        raise HTTPException(status_code=404, detail="נסיעה לא נמצאה")
-
-    return {"status": ride.status}
 
 
 @router.post("/create", response_model=schemas.RideRequestResponse)
@@ -59,6 +50,9 @@ def create_volunteer_ride(volunteer_data: schemas.VolunteerRideCreate, db: Sessi
         if matched_passenger:
             matched_passenger.status = "proposed"
             new_volunteer_ride.status = "proposed"
+
+            new_volunteer_ride.matched_request_id = matched_passenger.id
+
             db.commit()
 
             navigation_link = generate_google_maps_link(new_volunteer_ride, matched_passenger)
@@ -90,34 +84,102 @@ def create_volunteer_ride(volunteer_data: schemas.VolunteerRideCreate, db: Sessi
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/confirm")
-def confirm_ride_match(confirm_data: schemas.RideConfirmRequest, db: Session = Depends(get_db)):
+@router.patch("/volunteer/cancel/{volunteer_ride_id}")
+def cancel_volunteer_ride(volunteer_ride_id: int, db: Session = Depends(get_db)):
     try:
-        # 1. Retrieving the volunteer record and travel request based on the IDs sent by the front desk
-        volunteer_ride = db.query(models.VolunteerRide).filter_by(id=confirm_data.volunteer_ride_id).first()
-        ride_request = db.query(models.RideRequest).filter_by(id=confirm_data.ride_request_id).first()
+        volunteer_ride = db.query(models.VolunteerRide).filter_by(id=volunteer_ride_id).first()
+        if not volunteer_ride:
+            raise HTTPException(status_code=404, detail="נסיעת המתנדב לא נמצאה")
 
-        if not volunteer_ride or not ride_request:
-            raise HTTPException(status_code=404, detail="נסיעת המתנדב או בקשת הנסיעה לא נמצאו")
+        if volunteer_ride.matched_request_id is not None:
+            ride_request = db.query(models.RideRequest).filter_by(id=volunteer_ride.matched_request_id).first()
+            if ride_request:
+                ride_request.status = "pending"
 
-        # 2. Updating the statuses to the final status - approved!
-        volunteer_ride.status = "confirmed"
-        ride_request.status = "confirmed"
+        volunteer_ride.status = "cancelled"
         db.commit()
 
-        # 3. Calling the helper function that creates the link to Waze
-        waze_link = generate_google_maps_link(volunteer_ride, ride_request)
-
-        # 4. Returning a reply to the front
-        return {
-            "status": "success",
-            "message": "הנסיעה אושרה סופית על ידי שני הצדדים!",
-            "waze_route_url": waze_link,
-            "patient_phone": ride_request.patient_phone
-        }
+        return {"status": "success", "message": "נסיעת המתנדב בוטלה בהצלחה"}
 
     except HTTPException as he:
         raise he
     except Exception as e:
         db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/confirm")
+def confirm_ride_match(confirm_data: schemas.RideConfirmRequest, user_type: str = None, db: Session = Depends(get_db)):
+    try:
+        volunteer_ride = db.query(models.VolunteerRide).filter_by(id=confirm_data.volunteer_ride_id).first()
+        ride_request = db.query(models.RideRequest).filter_by(id=confirm_data.ride_request_id).first()
+
+        if not volunteer_ride or not ride_request:
+            raise HTTPException(status_code=404, detail="הנסיעה לא נמצאה")
+
+        # 🔥 זרימה חד-כיוונית מושלמת: המתנדב מאשר = הנסיעה מאושרת סופית ויוצאת לדרך!
+        volunteer_ride.status = "confirmed"
+        ride_request.status = "confirmed"
+        db.commit()
+
+        waze_link = generate_google_maps_link(volunteer_ride, ride_request)
+
+        return {
+            "status": "success",
+            "ride_status": "confirmed",
+            "waze_route_url": waze_link,
+            "patient_phone": ride_request.patient_phone
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{ride_id}/status")
+def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db)):
+    try:
+        if ride_type == "volunteer":
+            ride = db.query(models.VolunteerRide).filter_by(id=ride_id).first()
+            if not ride:
+                raise HTTPException(status_code=404, detail="נסיעת המתנדב לא נמצאה")
+
+            if ride.status == "pending":
+                matched_passenger = find_best_match(ride, db)
+                if matched_passenger:
+                    matched_passenger.status = "proposed"
+                    ride.status = "proposed"
+                    ride.matched_request_id = matched_passenger.id
+                    db.commit()
+
+            if ride.status in ["proposed", "volunteer_approved", "rider_approved", "confirmed"]:
+                passenger = db.query(models.RideRequest).filter_by(id=ride.matched_request_id).first()
+                if passenger:
+                    return {
+                        "status": ride.status,
+                        "ride_request_id": passenger.id,
+                        "passenger_name": passenger.patient_name,
+                        "origin": passenger.origin,
+                        "destination": passenger.destination
+                    }
+
+            return {"status": ride.status}
+
+        elif ride_type in ["passenger", "request"]:
+            ride = db.query(models.RideRequest).filter_by(id=ride_id).first()
+            if not ride:
+                raise HTTPException(status_code=404, detail="בקשת הנוסע לא נמצאה")
+
+            if ride.status in ["proposed", "volunteer_approved", "rider_approved", "confirmed"]:
+                volunteer = db.query(models.VolunteerRide).filter_by(matched_request_id=ride.id).first()
+                return {
+                    "status": ride.status,
+                    "volunteer_ride_id": volunteer.id if volunteer else None,
+                    "volunteer_name": "ישראל ישראלי",
+                    "volunteer_phone": "050-1234567",
+                }
+
+            return {"status": ride.status}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

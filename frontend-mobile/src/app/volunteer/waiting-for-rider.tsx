@@ -1,7 +1,6 @@
-// volunteer/waiting-for-rider.tsx — מסך המתנה לאישור הנוסע (צד מתנדב)
+// volunteer/waiting-for-rider.tsx
 import ScreenWrapper from '@/components/ScreenWrapper';
 import { colors } from '@/styles/colors';
-import { common } from '@/styles/common';
 import { typography } from '@/styles/typography';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -10,110 +9,169 @@ import {
     Alert,
     StyleSheet,
     Text,
-    TouchableOpacity,
     View,
+    Platform,
+    TouchableOpacity
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // 🌟 מעודכן ל-AsyncStorage
+import * as SecureStore from 'expo-secure-store';
+
+const AsyncStorage = Platform.OS !== 'web'
+  ? require('@react-native-async-storage/async-storage').default
+  : null;
 
 export default function VolunteerWaitingForRiderPage() {
-  const [isCanceling, setIsCanceling] = useState(false);
-  
-  // מקבלים את ה-ID האמיתי של הנסיעה שנשלח ממסך הסיכום
-  const { volunteer_ride_id } = useLocalSearchParams<{ volunteer_ride_id: string }>();
+  const { volunteer_ride_id, match_found, match_details, rideData } = useLocalSearchParams<{
+    volunteer_ride_id?: string;
+    match_found?: string;
+    match_details?: string;
+    rideData?: string;
+  }>();
 
-  useEffect(() => {
-    // אם אין ID (כי נכנסו לדף ישירות), לא מריצים את הלולאה סתם
-    if (!volunteer_ride_id) {
-      console.warn("לא נמצא מזהה נסיעה (volunteer_ride_id) תקין במסך ההמתנה");
-      return;
-    }
+  const [showTimeoutMessage, setShowTimeoutMessage] = useState(false);
+  const [isCreating, setIsCreating] = useState(!volunteer_ride_id && !!rideData);
 
-    // בדיקה אוטומטית (Polling) מול רחלי כל 4 שניות
-    const checkRideStatus = async () => {
-      try {
-        const token = await AsyncStorage.getItem('userToken');
-        
-        const response = await fetch(`http://127.0.0.1:8000/api/rides/${volunteer_ride_id}/status`, {
-          headers: {
-            'Authorization': `Bearer ${token}` // שולחים את הטוקן גם כאן
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          // אם הנוסע אישר והסטטוס השתנה ל-approved
-          if (data.status === 'approved') {
-             clearInterval(intervalId);
-             Alert.alert('🎉 הנוסע אישר!', 'נמצאה התאמה והנוסע אישר את הנסיעה.', [
-               { text: 'מעולה!', onPress: () => router.replace('/volunteer/volunteer-type') }
-             ]);
-          }
-        }
-      } catch (error) {
-        console.error("שגיאה בבדיקת הסטטוס מהשרת:", error);
-      }
-    };
-
-    // מפעילים את הלולאה
-    const intervalId = setInterval(checkRideStatus, 4000);
-    return () => clearInterval(intervalId); // מנקים כשיוצאים מהמסך
-  }, [volunteer_ride_id]);
-
-  // ❌ פונקציית ביטול החיפוש
-  const handleCancelSearch = async () => {
-    if (!volunteer_ride_id) {
-      router.replace('/volunteer/volunteer-type');
-      return;
-    }
-
-    setIsCanceling(true);
+  const getAuthToken = async () => {
+    if (Platform.OS === 'web') return localStorage.getItem('userToken');
     try {
-      const token = await AsyncStorage.getItem('userToken');
-      
-      const response = await fetch(`http://127.0.0.1:8000/api/rides/volunteer/cancel/${volunteer_ride_id}`, {
+      let token = await SecureStore.getItemAsync('userToken');
+      if (!token && AsyncStorage) token = await AsyncStorage.getItem('userToken');
+      return token;
+    } catch (error) { return AsyncStorage ? await AsyncStorage.getItem('userToken') : null; }
+  };
+
+  const createRideAndStartPolling = async (rideJson: string) => {
+    try {
+      const ride = JSON.parse(rideJson);
+      const token = await getAuthToken();
+      const response = await fetch('http://127.0.0.1:8000/api/rides/volunteer/create', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+            source_location: ride.origin,
+            destination_location: ride.destination,
+            available_seats: ride.seats_count,
+            grace_minutes: Number(ride.hesed_minutes),
+        })
       });
 
-      setIsCanceling(false);
+      const data = await response.json();
       if (response.ok) {
-        Alert.alert('החיפוש בוטל', 'נסיעת ההתנדבות שלך בוטלה בהצלחה.', [
-          { text: 'אוקי', onPress: () => router.replace('/volunteer/volunteer-type') }
-        ]);
+        setIsCreating(false);
+        // אם השרת מצא התאמה מיידית, נעבור ישר למסך ההתאמה
+        if (data.match_found) {
+            router.replace({
+                pathname: '/volunteer/match-found',
+                params: { ...data.match_details, volunteer_ride_id: data.volunteer_ride_id }
+            });
+        } else {
+            // אם לא, נמשיך לפוללינג הרגיל עם ה-ID שקיבלנו (נצטרך לרענן את ה-URL או להמשיך לוגית)
+            // כאן נשתמש ב-ID החדש כדי להמשיך לבדוק
+            startPollingFlow(data.volunteer_ride_id);
+        }
       } else {
-        Alert.alert('שגיאה', 'לא הצלחנו לבטל את הנסיעה בשרת כרגע.');
+        Alert.alert('שגיאה', 'לא הצלחנו ליצור את הנסיעה');
+        router.back();
       }
-    } catch (error) {
-      setIsCanceling(false);
-      Alert.alert('שגיאה', 'שגיאת תקשורת בניסיון לבטל את הנסיעה.');
+    } catch (e) {
+      Alert.alert('שגיאה', 'בעיית תקשורת');
+      router.back();
     }
   };
+
+  const startPollingFlow = (rideId: string) => {
+    let isMatchFound = false;
+
+    const autoCancelRideInBackend = async () => {
+      try {
+        const token = await getAuthToken();
+        await fetch(`http://127.0.0.1:8000/api/rides/volunteer/cancel/${rideId}`, {
+          method: 'PATCH',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      } catch (error) {}
+    };
+
+    const checkRideStatus = async () => {
+      if (isMatchFound) return;
+      try {
+        const token = await getAuthToken();
+        const response = await fetch(`http://127.0.0.1:8000/api/rides/${rideId}/status?ride_type=volunteer`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === 'proposed') {
+             isMatchFound = true;
+             router.replace({
+               pathname: '/volunteer/match-found',
+               params: {
+                 volunteer_ride_id: rideId,
+                 ride_request_id: String(data.ride_request_id),
+                 passenger_name: data.passenger_name || 'נוסע חסד',
+                 origin: data.origin,
+                 destination: data.destination
+               }
+             });
+          }
+        }
+      } catch (error) {}
+    };
+
+    const intervalId = setInterval(checkRideStatus, 2000);
+    const timeoutId = setTimeout(() => {
+        if (!isMatchFound) {
+            clearInterval(intervalId);
+            autoCancelRideInBackend();
+            setShowTimeoutMessage(true);
+        }
+    }, 5000);
+
+    return () => { clearInterval(intervalId); clearTimeout(timeoutId); };
+  };
+
+  useEffect(() => {
+    // 1. מקרה של התאמה קיימת (העברה מהסיכום)
+    if (match_found === 'true' && match_details) {
+      const timer = setTimeout(() => {
+        router.replace({ pathname: '/volunteer/match-found', params: { ...JSON.parse(match_details), volunteer_ride_id } });
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+
+    // 2. מקרה של יצירת נסיעה חדשה
+    if (rideData && !volunteer_ride_id) {
+        createRideAndStartPolling(rideData);
+        return;
+    }
+
+    // 3. מקרה של פוללינג רגיל
+    if (volunteer_ride_id) {
+        return startPollingFlow(volunteer_ride_id);
+    }
+  }, [volunteer_ride_id, rideData, match_found, match_details]);
+
+  if (showTimeoutMessage) {
+    return (
+      <ScreenWrapper>
+        <View style={styles.container}>
+          <Text style={styles.emoji}>❤️</Text>
+          <Text style={styles.title}>תודה רבה!</Text>
+          <Text style={styles.subtitle}>כל הכבוד על הרצון והלב החם להתנדב! כרגע אין חולה במאגר שזקוק להסעה במסלול זה.</Text>
+          <TouchableOpacity style={styles.homeBtn} onPress={() => router.replace('/volunteer/volunteer-type')}>
+            <Text style={styles.homeBtnText}>חזרה למסך הבית</Text>
+          </TouchableOpacity>
+        </View>
+      </ScreenWrapper>
+    );
+  }
 
   return (
     <ScreenWrapper>
       <View style={styles.container}>
-        <Text style={styles.title}>מחפשים לך נוסע...</Text>
+        <Text style={styles.title}>{isCreating ? 'מפרסם את הנסיעה...' : 'מחפשים לך נוסע...'}</Text>
         <Text style={styles.subtitle}>אנא המתן, המערכת מנסה להתאים חולה למסלול שלך ברגעים אלו</Text>
-
         <View style={styles.loaderContainer}>
-          {/* הגלגל המסתובב הגדול שלך! */}
           <ActivityIndicator size="large" color={colors.primaryBlue} style={styles.loader} />
-        </View>
-
-        <View style={styles.btnGroup}>
-          <TouchableOpacity 
-            style={styles.cancelBtn} 
-            onPress={handleCancelSearch} 
-            disabled={isCanceling}
-          >
-            {isCanceling ? (
-              <ActivityIndicator color={colors.primaryBlue} />
-            ) : (
-              <Text style={styles.cancelText}>ביטול חיפוש והתנדבות</Text>
-            )}
-          </TouchableOpacity>
         </View>
       </View>
     </ScreenWrapper>
@@ -122,11 +180,11 @@ export default function VolunteerWaitingForRiderPage() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, justifyContent: 'center', alignItems: 'center', gap: 20 },
+  emoji: { fontSize: 64, marginBottom: 10 },
   title: { ...typography.h2, color: colors.primaryNavy, textAlign: 'center' },
-  subtitle: { ...typography.bodySecondary, textAlign: 'center', paddingHorizontal: 20 },
+  subtitle: { ...typography.bodySecondary, textAlign: 'center', paddingHorizontal: 20, lineHeight: 24 },
   loaderContainer: { marginVertical: 40, justifyContent: 'center', alignItems: 'center' },
   loader: { transform: [{ scale: 1.5 }] },
-  btnGroup: { width: '100%', marginTop: 20 },
-  cancelBtn: { padding: 16, borderRadius: 12, borderWidth: 1, borderColor: colors.primaryBlue, alignItems: 'center' },
-  cancelText: { color: colors.primaryBlue, fontWeight: '600', fontSize: 16 },
+  homeBtn: { backgroundColor: colors.primaryBlue, paddingVertical: 16, paddingHorizontal: 32, borderRadius: 12, marginTop: 30, width: '100%', alignItems: 'center' },
+  homeBtnText: { color: colors.white, fontSize: 16, fontWeight: 'bold' }
 });
