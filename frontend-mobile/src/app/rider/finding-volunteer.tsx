@@ -2,29 +2,20 @@ import ScreenWrapper from '@/components/ScreenWrapper';
 import { colors } from '@/styles/colors';
 import { typography } from '@/styles/typography';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 
 export default function RiderFindingVolunteerPage() {
-  // 🌟 מושכים את כל הפרמטרים כדי לתפוס את ה-ID לא משנה איך הטופס קרא לו!
   const params = useLocalSearchParams();
-  const [debugText, setDebugText] = useState('מחפש מזהה נסיעה במערכת...');
 
   useEffect(() => {
-    // מנסים לשלוף את המזהה מכל השמות האפשריים שהטופס יכול היה לשלוח
+    // שולפים את המזהה
     const id = params.ride_request_id || params.id || params.requestId || params.request_id;
 
     if (!id) {
-      setDebugText('❌ שגיאה: הטופס הקודם לא העביר מזהה נסיעה!');
-      // הקפצת חלון בולט שאי אפשר לפספס!
-      Alert.alert(
-        "תקלה בניתוב",
-        "מספר הנסיעה חסר! המסך לא יכול לחפש נהג. הבעיה היא במסך הטופס שלא העביר את ה-ID."
-      );
+      Alert.alert("תקלה בניתוב", "מספר הנסיעה חסר!");
       return;
     }
-
-    setDebugText(`מתחיל סריקה ללא הפסקה עבור נסיעה: ${id}`);
 
     const checkRideStatus = async () => {
       try {
@@ -33,11 +24,9 @@ export default function RiderFindingVolunteerPage() {
 
         if (response.ok) {
           const data = await response.json();
-          setDebugText(`✅ השרת ענה. סטטוס: ${data.status}`);
 
-          // ברגע שהמתנדב אישר (confirmed), קופצים אוטומטית למסך הירוק!
+          // ברגע שהמתנדב אישר, עוברים למסך ההצלחה
           if (data.status === 'confirmed') {
-            clearInterval(intervalId);
             router.replace({
               pathname: '/rider/match-found',
               params: {
@@ -47,16 +36,16 @@ export default function RiderFindingVolunteerPage() {
               }
             });
           }
-        } else {
-          setDebugText(`⚠️ השרת החזיר שגיאה: ${response.status}`);
         }
       } catch (error) {
-        setDebugText('❌ נותק הקשר עם השרת.');
+        console.error("שגיאה בפוללינג:", error);
       }
     };
 
-    checkRideStatus(); // בדיקה ראשונה מיידית
-    const intervalId = setInterval(checkRideStatus, 3000);
+    checkRideStatus(); // בדיקה ראשונה
+    const intervalId = setInterval(checkRideStatus, 3000); // בדיקה כל 3 שניות
+
+    // מנקה את הטיימר ברגע שעוזבים את המסך
     return () => clearInterval(intervalId);
   }, [params]);
 
@@ -68,11 +57,7 @@ export default function RiderFindingVolunteerPage() {
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color={colors.primaryBlue} style={styles.loader} />
         </View>
-
-        {/* טקסט הבקרה שמוכיח לנו מה קורה בלייב */}
-        <Text style={{ marginTop: 40, color: '#888', fontSize: 14, textAlign: 'center', fontWeight: 'bold' }}>
-          {debugText}
-        </Text>
+        {/* טקסט הדיבוג נמחק מכאן לחלוטין! UI נקי בלבד. */}
       </View>
     </ScreenWrapper>
   );
