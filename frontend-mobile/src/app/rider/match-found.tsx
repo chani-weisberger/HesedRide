@@ -29,10 +29,6 @@ export default function RiderMatchFoundPage() {
             <Text style={styles.rowValue}>{params.volunteer_phone}</Text>
             <Text style={styles.rowLabel}>טלפון</Text>
           </View>
-          <View style={styles.row}>
-            <Text style={styles.rowValue}>{params.volunteer_car}</Text>
-            <Text style={styles.rowLabel}>רכב</Text>
-          </View>
         </View>
 
         <TouchableOpacity style={[styles.primaryButton, { backgroundColor: '#2ed573' }]} onPress={() => router.replace('/rider/ride-type')}>

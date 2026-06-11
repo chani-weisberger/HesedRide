@@ -176,7 +176,6 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
                     "volunteer_ride_id": volunteer.id if volunteer else None,
                     "volunteer_name": "ישראל ישראלי",
                     "volunteer_phone": "050-1234567",
-                    "volunteer_car": "טויוטה קורולה לבנה"
                 }
 
             return {"status": ride.status}
