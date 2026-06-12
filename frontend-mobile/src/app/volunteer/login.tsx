@@ -20,6 +20,7 @@ import { common } from '@/styles/common';
 import { typography } from '@/styles/typography';
 import { registerVolunteer ,loginVolunteer} from '@/services/authService';
 import * as SecureStore from 'expo-secure-store';
+
 export default function VolunteerAuthPage() {
 
   const [isLogin, setIsLogin] = useState(true);
@@ -28,6 +29,7 @@ export default function VolunteerAuthPage() {
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
  const handleLogin = async () => {
   if (!username || !password) {
@@ -51,11 +53,9 @@ export default function VolunteerAuthPage() {
             await SecureStore.setItemAsync('userId', String(data.user.id));
         }
       }
-      // ✨ בדיקה: אם אנחנו בדפדפן, נשמור ב-localStorage של הדפדפן
       if (Platform.OS === 'web') {
         localStorage.setItem('userToken', data.access_token || data.token);
       } else {
-        // אם אנחנו בטלפון, נשתמש ב-SecureStore המאובטח כרגיל
         try {
           await SecureStore.setItemAsync('userToken', data.access_token || data.token);
         } catch (e) {
@@ -77,7 +77,7 @@ export default function VolunteerAuthPage() {
   }
 };
 
-  const handleRegister = async () => {
+const handleRegister = async () => {
     if (!username || !password || !fullName) {
       Alert.alert('שגיאה', 'נא למלא תעודת זהות, שם מלא וסיסמה');
       return;
@@ -91,15 +91,15 @@ export default function VolunteerAuthPage() {
       setIsLoading(false);
 
       if (response.ok) {
+        // 1. מנקים רק את השדות שלא רלוונטיים למסך ההתחברות הבא
         setFullName('');
         setPhoneNumber('');
-        setUsername('');
-        setPassword('');
-        Alert.alert(
-          '✓ ההרשמה בוצעה בהצלחה!',
-          `ברוך הבא ${data.full_name}!`,
-          [{ text: 'כניסה למערכת', onPress: () => setIsLogin(true) }]
-        );
+
+        // 2. שומרים את הודעת ההצלחה ב-State החדש
+        setSuccessMessage(`✓ ברוך הבא ${data.full_name || ''}! נרשמת בהצלחה. הפרטים שלך כבר הוזנו, כעת נותר רק להתחבר.`);
+
+        // 3. מעבירים למסך התחברות מיד
+        setIsLogin(true);
       } else {
         Alert.alert('אופס...', data.error || 'ההרשמה נכשלה. נסו שוב.');
       }
@@ -117,6 +117,13 @@ export default function VolunteerAuthPage() {
         <Text style={styles.title}>
           {isLogin ? 'כניסת מתנדב' : 'הרשמת מתנדב'}
         </Text>
+
+        {/* 4. באנר הודעת ההצלחה שיופיע רק אם יש הודעה ואנחנו במסך לוגאין */}
+        {isLogin && successMessage ? (
+          <View style={styles.successBanner}>
+            <Text style={styles.successText}>{successMessage}</Text>
+          </View>
+        ) : null}
 
         <View style={common.card}>
 
@@ -174,7 +181,10 @@ export default function VolunteerAuthPage() {
 
           <TouchableOpacity
             style={styles.switchBtn}
-            onPress={() => setIsLogin(!isLogin)}
+            onPress={() => {
+              setIsLogin(!isLogin);
+              setSuccessMessage(''); // 5. מאפס את ההודעה הירוקה במעבר חזרה להרשמה
+            }}
           >
             <Text style={styles.switchText}>
               {isLogin
@@ -214,4 +224,19 @@ const styles = StyleSheet.create({
   switchText: { color: colors.primaryBlue, fontSize: 14 },
   backBtn: { alignItems: 'center', marginTop: 20, padding: 12 },
   backText: { color: colors.primaryBlue, fontSize: 14 },
+  // 6. העיצוב החדש של הבאנר הירוק
+  successBanner: {
+    backgroundColor: '#e6f4ea',
+    borderColor: '#1e8e3e',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 16,
+  },
+  successText: {
+    color: '#137333',
+    textAlign: 'center',
+    fontSize: 15,
+    fontWeight: '600',
+  },
 });
