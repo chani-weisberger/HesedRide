@@ -1,10 +1,16 @@
 // volunteer/dashboard.tsx — דשבורד המתנדב
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, Platform } from 'react-native';
 import { router } from 'expo-router';
 import ScreenWrapper from '@/components/ScreenWrapper';
 import { colors } from '@/styles/colors';
 import { common } from '@/styles/common';
 import { typography } from '@/styles/typography';
+import * as SecureStore from 'expo-secure-store';
+
+const AsyncStorage = Platform.OS !== 'web'
+  ? require('@react-native-async-storage/async-storage').default
+  : null;
 
 const VOLUNTEER_OPTIONS = [
   {
@@ -34,12 +40,45 @@ const VOLUNTEER_OPTIONS = [
 ];
 
 export default function VolunteerDashboard() {
+  const [firstName, setFirstName] = useState('מתנדב');
+
+  useEffect(() => {
+    const fetchUserName = async () => {
+      try {
+        let storedName = null;
+
+        // שליפת השם מהזיכרון בהתאם לפלטפורמה (ווב או מובייל)
+        if (Platform.OS === 'web') {
+          storedName = localStorage.getItem('userName');
+        } else {
+          try {
+            storedName = await SecureStore.getItemAsync('userName');
+          } catch (e) {
+            if (AsyncStorage) {
+              storedName = await AsyncStorage.getItem('userName');
+            }
+          }
+        }
+
+        if (storedName) {
+          // לוקחים רק את המילה הראשונה (השם הפרטי) מהשם המלא
+          const first = storedName.trim().split(/\s+/)[0];
+          setFirstName(first);
+        }
+      } catch (error) {
+        console.log("Error fetching user name:", error);
+      }
+    };
+
+    fetchUserName();
+  }, []);
+
   return (
     <ScreenWrapper>
       <View style={styles.container}>
 
         <View style={styles.header}>
-          <Text style={typography.h2}>שלום מתנדב!</Text>
+          <Text style={typography.h2}>שלום {firstName}!</Text>
           <Text style={[typography.bodySecondary, styles.subtitle]}>
             כיצד תרצה להתנדב היום?
           </Text>
@@ -71,7 +110,13 @@ export default function VolunteerDashboard() {
 
         <TouchableOpacity
           style={styles.logoutBtn}
-          onPress={() => router.replace('/')}
+          onPress={() => {
+            // רשות: ניקוי הזיכרון ביציאה
+            if (Platform.OS === 'web') {
+              localStorage.clear();
+            }
+            router.replace('/');
+          }}
         >
           <Text style={styles.logoutText}>יציאה מהמערכת</Text>
         </TouchableOpacity>

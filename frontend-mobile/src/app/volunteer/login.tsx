@@ -67,9 +67,11 @@ export default function VolunteerAuthPage() {
           }
           if (Platform.OS === 'web') {
             localStorage.setItem('userToken', data.access_token || data.token);
+            localStorage.setItem('userName', data.user.full_name);
           } else {
             try {
               await SecureStore.setItemAsync('userToken', data.access_token || data.token);
+              await SecureStore.setItemAsync('userName', data.user.full_name);
             } catch (e) {
               console.log("SecureStore not available, trying AsyncStorage");
               if (AsyncStorage) {
