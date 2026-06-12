@@ -28,13 +28,23 @@ def get_travel_time_minutes(origin: str, destination: str) -> int | None:
 
 
 def generate_google_maps_link(v_ride: VolunteerRide, r_request: RideRequest) -> str:
-    # הכתובת התקינה שסידרנו
     base_url = "https://www.google.com/maps/dir/"
+
+    # רשימת הכתובות המקורית
     addresses = [
         v_ride.source_location,
         r_request.origin,
         r_request.destination,
         v_ride.destination_location
     ]
-    encoded_addresses = [urllib.parse.quote(addr) for addr in addresses]
-    return base_url + "/".join(encoded_addresses)
+
+    # צמצום כפילויות תוך שמירה על סדר (dict.fromkeys עושה בדיוק את זה)
+    unique_addresses = list(dict.fromkeys(addresses))
+
+    # קידוד הכתובות הייחודיות בלבד
+    encoded_addresses = [urllib.parse.quote(addr) for addr in unique_addresses]
+
+    # בניית הקישור הסופי
+    final_url = base_url + "/".join(encoded_addresses)
+
+    return final_url
