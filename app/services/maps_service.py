@@ -2,8 +2,10 @@ import requests
 import urllib.parse
 import os
 from app.db.models import VolunteerRide, RideRequest
+from functools import lru_cache
 
 
+@lru_cache(maxsize=100)
 def get_travel_time_minutes(origin: str, destination: str) -> int | None:
     api_key = os.getenv("GOOGLE_MAPS_API_KEY")
     if not api_key:
@@ -12,20 +14,21 @@ def get_travel_time_minutes(origin: str, destination: str) -> int | None:
     encoded_origin = urllib.parse.quote(origin)
     encoded_destination = urllib.parse.quote(destination)
 
-    url = f"https://maps.googleapis.com/maps/api/distancematrix/json?origins={encoded_origin}&destinations={encoded_destination}&key={api_key}"
+    # שימוש ב-Directions API - קריאה נקודתית
+    url = f"https://maps.googleapis.com/maps/api/directions/json?origin={encoded_origin}&destination={encoded_destination}&key={api_key}"
 
     try:
         response = requests.get(url, timeout=5)
         data = response.json()
 
-        if data.get('rows') and data['rows'][0]['elements'][0]['status'] == 'OK':
-            duration_in_seconds = data['rows'][0]['elements'][0]['duration']['value']
-            return duration_in_seconds // 60
+        if data.get('routes') and len(data['routes']) > 0:
+            # חילוץ זמן הנסיעה
+            leg = data['routes'][0]['legs'][0]
+            return leg['duration']['value'] // 60
         return None
     except Exception as e:
         print(f"Error: {e}")
         return None
-
 
 def generate_google_maps_link(v_ride: VolunteerRide, r_request: RideRequest) -> str:
     base_url = "https://www.google.com/maps/dir/"
