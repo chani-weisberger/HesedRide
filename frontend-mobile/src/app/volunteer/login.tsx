@@ -30,6 +30,7 @@ export default function VolunteerAuthPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [serverPasswordError, setServerPasswordError] = useState('');
 
   // פונקציות Validation
   const isNameValid = fullName.trim().split(/\s+/).length >= 2;
@@ -42,8 +43,13 @@ export default function VolunteerAuthPage() {
       Alert.alert('שגיאה', 'נא למלא תעודת זהות וסיסמה');
       return;
     }
+    if (!isIdValid) {
+       Alert.alert('שגיאה', 'תעודת זהות חייבת להכיל בדיוק 9 ספרות');
+       return;
+    }
 
     setIsLoading(true);
+    setServerPasswordError('');
 
     try {
       const response = await loginVolunteer(username, password);
@@ -73,8 +79,20 @@ export default function VolunteerAuthPage() {
           }
         }
         router.replace('/volunteer/volunteer-type' as any);
+
+      } else if (response.status === 404 || data.detail === "USER_NOT_FOUND") {
+        // המשתמש לא קיים - מעבירים אותו למסך הרשמה מיד (עוקף את מגבלת הדפדפן)
+        setIsLogin(false);
+
+        // מציגים את ההודעה המזמינה
+        Alert.alert(
+          'ברוך הבא!',
+          'נראה שאתה מתנדב חדש במערכת. בוא נשלים את ההרשמה בקצרה.'
+        );
+      } else if (response.status === 401) {
+        setServerPasswordError('הסיסמה שגויה. נסה שוב.');
       } else {
-        Alert.alert('שגיאה', data.detail || 'תעודת זהות או סיסמה שגויים');
+        Alert.alert('שגיאה', data.detail || 'שגיאה בהתחברות. נסה שוב.');
       }
 
     } catch (error) {
@@ -84,9 +102,8 @@ export default function VolunteerAuthPage() {
   };
 
   const handleRegister = async () => {
-    // חוסם הרשמה אם אחד מהשדות לא תקין
     if (!isIdValid || !isPasswordValid || !isNameValid || !isPhoneValid) {
-      Alert.alert('שגיאה', 'נא לתקן את השדות המסומנים באדום טרם ההרשמה');
+      Alert.alert('שגיאה', 'נא לתקן את השגיאות בשדות טרם ההרשמה');
       return;
     }
 
@@ -98,14 +115,9 @@ export default function VolunteerAuthPage() {
       setIsLoading(false);
 
       if (response.ok) {
-        // מנקים רק את מה שלא צריך למסך הבא
         setFullName('');
         setPhoneNumber('');
-
-        // מגדירים את הודעת ההצלחה
         setSuccessMessage(`✓ ברוך הבא ${data.full_name || ''}! נרשמת בהצלחה. הפרטים שלך כבר הוזנו, כעת נותר רק להתחבר.`);
-
-        // מעבירים למסך התחברות עם הפרטים שכבר בפנים
         setIsLogin(true);
       } else {
         Alert.alert('אופס...', data.error || 'ההרשמה נכשלה. נסו שוב.');
@@ -115,12 +127,6 @@ export default function VolunteerAuthPage() {
       setIsLoading(false);
       Alert.alert('שגיאת תקשורת', 'לא מצליח להתחבר לשרת. וודאו שהבאקאנד דולק!');
     }
-  };
-
-  // פונקציית עזר לקביעת צבע המסגרת
-  const getInputStyle = (value: string, isValid: boolean) => {
-    if (value.length === 0) return styles.input; // שדה ריק - עיצוב רגיל
-    return isValid ? [styles.input, styles.inputSuccess] : [styles.input, styles.inputError];
   };
 
   return (
@@ -142,7 +148,7 @@ export default function VolunteerAuthPage() {
           {!isLogin && (
             <>
               <TextInput
-                style={getInputStyle(fullName, isNameValid)}
+                style={styles.input}
                 placeholder="שם מלא"
                 placeholderTextColor="#999"
                 value={fullName}
@@ -154,7 +160,7 @@ export default function VolunteerAuthPage() {
               )}
 
               <TextInput
-                style={getInputStyle(phoneNumber, isPhoneValid)}
+                style={styles.input}
                 placeholder="מספר טלפון נייד"
                 placeholderTextColor="#999"
                 keyboardType="phone-pad"
@@ -169,7 +175,7 @@ export default function VolunteerAuthPage() {
           )}
 
           <TextInput
-            style={getInputStyle(username, isIdValid)}
+            style={styles.input}
             placeholder="תעודת זהות"
             placeholderTextColor="#999"
             value={username}
@@ -183,14 +189,21 @@ export default function VolunteerAuthPage() {
           )}
 
           <TextInput
-            style={getInputStyle(password, isPasswordValid)}
+            style={styles.input}
             placeholder="סיסמה"
             placeholderTextColor="#999"
             secureTextEntry
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(text) => {
+              setPassword(text);
+              if (serverPasswordError) setServerPasswordError('');
+            }}
             textAlign="right"
           />
+          {isLogin && serverPasswordError ? (
+            <Text style={styles.errorText}>{serverPasswordError}</Text>
+          ) : null}
+
           {!isLogin && password.length > 0 && !isPasswordValid && (
             <Text style={styles.errorText}>הסיסמה חייבת להכיל לפחות 8 תווים, כולל אות גדולה, אות קטנה ומספר</Text>
           )}
@@ -214,6 +227,7 @@ export default function VolunteerAuthPage() {
             onPress={() => {
               setIsLogin(!isLogin);
               setSuccessMessage('');
+              setServerPasswordError('');
             }}
           >
             <Text style={styles.switchText}>
@@ -250,14 +264,6 @@ const styles = StyleSheet.create({
     borderColor: colors.inputBorder,
     fontSize: 16,
     color: '#333',
-  },
-  inputError: {
-    borderColor: '#d32f2f',
-    backgroundColor: '#fffcfc',
-  },
-  inputSuccess: {
-    borderColor: '#388e3c',
-    backgroundColor: '#f9fff9',
   },
   errorText: {
     color: '#d32f2f',
