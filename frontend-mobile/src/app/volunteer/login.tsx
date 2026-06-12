@@ -31,55 +31,62 @@ export default function VolunteerAuthPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
- const handleLogin = async () => {
-  if (!username || !password) {
-    Alert.alert('שגיאה', 'נא למלא תעודת זהות וסיסמה');
-    return;
-  }
+  // פונקציות Validation
+  const isNameValid = fullName.trim().split(/\s+/).length >= 2;
+  const isPhoneValid = /^05\d{8}$/.test(phoneNumber);
+  const isIdValid = /^\d{9}$/.test(username);
+  const isPasswordValid = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(password);
 
-  setIsLoading(true);
-
-  try {
-    const response = await loginVolunteer(username, password);
-    const data = await response.json();
-    setIsLoading(false);
-
-    if (response.ok) {
-  if (data.access_token) {
-      if (data.user && data.user.id) {
-        if (Platform.OS === 'web') {
-            localStorage.setItem('userId', String(data.user.id));
-        } else if (SecureStore) {
-            await SecureStore.setItemAsync('userId', String(data.user.id));
-        }
-      }
-      if (Platform.OS === 'web') {
-        localStorage.setItem('userToken', data.access_token || data.token);
-      } else {
-        try {
-          await SecureStore.setItemAsync('userToken', data.access_token || data.token);
-        } catch (e) {
-          console.log("SecureStore not available, trying AsyncStorage");
-          if (AsyncStorage) {
-            await AsyncStorage.setItem('userToken', data.access_token || data.token);
-          }
-        }
-      }
-}
-  router.replace('/volunteer/volunteer-type' as any);
-} else {
-      Alert.alert('שגיאה', data.detail || 'תעודת זהות או סיסמה שגויים');
+  const handleLogin = async () => {
+    if (!username || !password) {
+      Alert.alert('שגיאה', 'נא למלא תעודת זהות וסיסמה');
+      return;
     }
 
-  } catch (error) {
-    setIsLoading(false);
-    Alert.alert('שגיאת תקשורת', 'לא מצליח להתחבר לשרת');
-  }
-};
+    setIsLoading(true);
 
-const handleRegister = async () => {
-    if (!username || !password || !fullName) {
-      Alert.alert('שגיאה', 'נא למלא תעודת זהות, שם מלא וסיסמה');
+    try {
+      const response = await loginVolunteer(username, password);
+      const data = await response.json();
+      setIsLoading(false);
+
+      if (response.ok) {
+        if (data.access_token) {
+          if (data.user && data.user.id) {
+            if (Platform.OS === 'web') {
+                localStorage.setItem('userId', String(data.user.id));
+            } else if (SecureStore) {
+                await SecureStore.setItemAsync('userId', String(data.user.id));
+            }
+          }
+          if (Platform.OS === 'web') {
+            localStorage.setItem('userToken', data.access_token || data.token);
+          } else {
+            try {
+              await SecureStore.setItemAsync('userToken', data.access_token || data.token);
+            } catch (e) {
+              console.log("SecureStore not available, trying AsyncStorage");
+              if (AsyncStorage) {
+                await AsyncStorage.setItem('userToken', data.access_token || data.token);
+              }
+            }
+          }
+        }
+        router.replace('/volunteer/volunteer-type' as any);
+      } else {
+        Alert.alert('שגיאה', data.detail || 'תעודת זהות או סיסמה שגויים');
+      }
+
+    } catch (error) {
+      setIsLoading(false);
+      Alert.alert('שגיאת תקשורת', 'לא מצליח להתחבר לשרת');
+    }
+  };
+
+  const handleRegister = async () => {
+    // חוסם הרשמה אם אחד מהשדות לא תקין
+    if (!isIdValid || !isPasswordValid || !isNameValid || !isPhoneValid) {
+      Alert.alert('שגיאה', 'נא לתקן את השדות המסומנים באדום טרם ההרשמה');
       return;
     }
 
@@ -91,14 +98,14 @@ const handleRegister = async () => {
       setIsLoading(false);
 
       if (response.ok) {
-        // 1. מנקים רק את השדות שלא רלוונטיים למסך ההתחברות הבא
+        // מנקים רק את מה שלא צריך למסך הבא
         setFullName('');
         setPhoneNumber('');
 
-        // 2. שומרים את הודעת ההצלחה ב-State החדש
+        // מגדירים את הודעת ההצלחה
         setSuccessMessage(`✓ ברוך הבא ${data.full_name || ''}! נרשמת בהצלחה. הפרטים שלך כבר הוזנו, כעת נותר רק להתחבר.`);
 
-        // 3. מעבירים למסך התחברות מיד
+        // מעבירים למסך התחברות עם הפרטים שכבר בפנים
         setIsLogin(true);
       } else {
         Alert.alert('אופס...', data.error || 'ההרשמה נכשלה. נסו שוב.');
@@ -110,6 +117,12 @@ const handleRegister = async () => {
     }
   };
 
+  // פונקציית עזר לקביעת צבע המסגרת
+  const getInputStyle = (value: string, isValid: boolean) => {
+    if (value.length === 0) return styles.input; // שדה ריק - עיצוב רגיל
+    return isValid ? [styles.input, styles.inputSuccess] : [styles.input, styles.inputError];
+  };
+
   return (
     <ScreenWrapper scrollable>
       <View style={styles.container}>
@@ -118,7 +131,6 @@ const handleRegister = async () => {
           {isLogin ? 'כניסת מתנדב' : 'הרשמת מתנדב'}
         </Text>
 
-        {/* 4. באנר הודעת ההצלחה שיופיע רק אם יש הודעה ואנחנו במסך לוגאין */}
         {isLogin && successMessage ? (
           <View style={styles.successBanner}>
             <Text style={styles.successText}>{successMessage}</Text>
@@ -130,43 +142,61 @@ const handleRegister = async () => {
           {!isLogin && (
             <>
               <TextInput
-                style={styles.input}
+                style={getInputStyle(fullName, isNameValid)}
                 placeholder="שם מלא"
+                placeholderTextColor="#999"
                 value={fullName}
                 onChangeText={setFullName}
                 textAlign="right"
               />
+              {fullName.length > 0 && !isNameValid && (
+                <Text style={styles.errorText}>יש להזין שם פרטי ושם משפחה</Text>
+              )}
+
               <TextInput
-                style={styles.input}
-                placeholder="מספר טלפון (אופציונלי)"
+                style={getInputStyle(phoneNumber, isPhoneValid)}
+                placeholder="מספר טלפון נייד"
+                placeholderTextColor="#999"
                 keyboardType="phone-pad"
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
                 textAlign="right"
               />
+              {phoneNumber.length > 0 && !isPhoneValid && (
+                <Text style={styles.errorText}>מספר טלפון חייב להכיל 10 ספרות</Text>
+              )}
             </>
           )}
 
           <TextInput
-            style={styles.input}
+            style={getInputStyle(username, isIdValid)}
             placeholder="תעודת זהות"
+            placeholderTextColor="#999"
             value={username}
             onChangeText={setUsername}
             textAlign="right"
+            keyboardType="numeric"
             autoCapitalize="none"
           />
+          {username.length > 0 && !isIdValid && (
+            <Text style={styles.errorText}>תעודת זהות חייבת להכיל בדיוק 9 ספרות</Text>
+          )}
 
           <TextInput
-            style={styles.input}
-            placeholder={isLogin ? 'סיסמה' : 'קבע סיסמה'}
+            style={getInputStyle(password, isPasswordValid)}
+            placeholder="סיסמה"
+            placeholderTextColor="#999"
             secureTextEntry
             value={password}
             onChangeText={setPassword}
             textAlign="right"
           />
+          {!isLogin && password.length > 0 && !isPasswordValid && (
+            <Text style={styles.errorText}>הסיסמה חייבת להכיל לפחות 8 תווים, כולל אות גדולה, אות קטנה ומספר</Text>
+          )}
 
           <TouchableOpacity
-            style={common.buttonPrimary}
+            style={[common.buttonPrimary, { marginTop: 10 }]}
             onPress={isLogin ? handleLogin : handleRegister}
             disabled={isLoading}
             activeOpacity={0.8}
@@ -183,7 +213,7 @@ const handleRegister = async () => {
             style={styles.switchBtn}
             onPress={() => {
               setIsLogin(!isLogin);
-              setSuccessMessage(''); // 5. מאפס את ההודעה הירוקה במעבר חזרה להרשמה
+              setSuccessMessage('');
             }}
           >
             <Text style={styles.switchText}>
@@ -215,16 +245,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
     borderRadius: 10,
     paddingHorizontal: 16,
-    marginBottom: 14,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: colors.inputBorder,
     fontSize: 16,
+    color: '#333',
+  },
+  inputError: {
+    borderColor: '#d32f2f',
+    backgroundColor: '#fffcfc',
+  },
+  inputSuccess: {
+    borderColor: '#388e3c',
+    backgroundColor: '#f9fff9',
+  },
+  errorText: {
+    color: '#d32f2f',
+    fontSize: 12,
+    marginBottom: 10,
+    textAlign: 'right',
+    marginRight: 4,
   },
   switchBtn: { marginTop: 16, alignItems: 'center' },
   switchText: { color: colors.primaryBlue, fontSize: 14 },
   backBtn: { alignItems: 'center', marginTop: 20, padding: 12 },
   backText: { color: colors.primaryBlue, fontSize: 14 },
-  // 6. העיצוב החדש של הבאנר הירוק
   successBanner: {
     backgroundColor: '#e6f4ea',
     borderColor: '#1e8e3e',
