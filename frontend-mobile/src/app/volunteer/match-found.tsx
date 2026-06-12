@@ -30,7 +30,7 @@ export default function MatchFoundPage() {
       const data = await response.json();
       if (response.ok && data.status === 'success') {
         // 🔥 בום! נסיעה מאושרת במכה אחת
-        setNavigationUrl(data.waze_route_url || null);
+        setNavigationUrl(data.navigation_url || null);
         setPassengerPhone(data.patient_phone || '058-4657588');
         setIsConfirmed(true);
       } else {
