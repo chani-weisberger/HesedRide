@@ -133,18 +133,18 @@ def confirm_ride_match(confirm_data: schemas.RideConfirmRequest, user_type: str 
         ride_request.status = "confirmed"
         db.commit()
 
-        waze_link = generate_google_maps_link(volunteer_ride, ride_request)
+        # יצירת הקישור המסונן מגוגל מפות
+        navigation_link = generate_google_maps_link(volunteer_ride, ride_request)
 
         return {
             "status": "success",
             "ride_status": "confirmed",
-            "waze_route_url": waze_link,
+            "navigation_url": navigation_link, # שינינו את המפתח למשהו הגיוני!
             "patient_phone": ride_request.patient_phone
         }
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
-
 
 @router.get("/{ride_id}/status")
 def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db)):
