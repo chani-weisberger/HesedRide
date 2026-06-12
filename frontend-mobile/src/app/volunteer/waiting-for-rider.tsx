@@ -137,14 +137,14 @@ export default function VolunteerWaitingForRiderPage() {
       } catch (error) {}
     };
 
-    const intervalId = setInterval(checkRideStatus, 2000);
+    const intervalId = setInterval(checkRideStatus, 1000);
     const timeoutId = setTimeout(() => {
         if (!isMatchFound) {
             clearInterval(intervalId);
             autoCancelRideInBackend();
             setShowTimeoutMessage(true);
         }
-    }, 5000);
+    }, 3000);
 
     return () => { clearInterval(intervalId); clearTimeout(timeoutId); };
   };
@@ -154,7 +154,7 @@ export default function VolunteerWaitingForRiderPage() {
     if (match_found === 'true' && match_details) {
       const timer = setTimeout(() => {
         router.replace({ pathname: '/volunteer/match-found', params: { ...JSON.parse(match_details), volunteer_ride_id } });
-      }, 1500);
+      }, 1000);
       return () => clearTimeout(timer);
     }
 
