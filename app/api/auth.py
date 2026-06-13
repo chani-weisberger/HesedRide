@@ -15,11 +15,18 @@ JWT_ALGORITHM = "HS256"
 
 router = APIRouter(prefix="/api", tags=["Authentication"])
 
+
 @router.post("/login")
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(models.User).filter_by(id_number=request.id_number).first()
-    if not user or user.password != request.password:
-        raise HTTPException(status_code=401, detail="תעודת זהות או סיסמה שגויים")
+
+    # 1. אם המשתמש בכלל לא קיים - נחזיר 404 כדי שה-Frontend ידע להעביר להרשמה
+    if not user:
+        raise HTTPException(status_code=404, detail="USER_NOT_FOUND")
+
+    # 2. אם הוא קיים אבל הסיסמה לא תואמת - נחזיר 401
+    if user.password != request.password:
+        raise HTTPException(status_code=401, detail="סיסמה שגויה. נסה שוב.")
 
     payload = {
         "sub": str(user.id),
@@ -33,7 +40,6 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
         "token_type": "bearer",
         "user": UserResponse.model_validate(user),
     }
-
 @router.post("/signup", response_model=UserResponse)
 def signup(request: SignupRequest, db: Session = Depends(get_db)):
     existing_user = db.query(models.User).filter_by(id_number=request.id_number).first()
