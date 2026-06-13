@@ -8,7 +8,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Platform
+  Platform,
+  Modal
 } from 'react-native';
 const AsyncStorage = Platform.OS !== 'web'
   ? require('@react-native-async-storage/async-storage').default
@@ -32,19 +33,30 @@ export default function VolunteerAuthPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [serverPasswordError, setServerPasswordError] = useState('');
 
-  // פונקציות Validation
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [loginAttempted, setLoginAttempted] = useState(false);
+
+  const [showExistModal, setShowExistModal] = useState(false);
+  const [showNewUserModal, setShowNewUserModal] = useState(false);
+
+  // פונקציות Validation פנימיות
   const isNameValid = fullName.trim().split(/\s+/).length >= 2;
   const isPhoneValid = /^05\d{8}$/.test(phoneNumber);
   const isIdValid = /^\d{9}$/.test(username);
   const isPasswordValid = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(password);
 
-  const handleLogin = async () => {
-    if (!username || !password) {
-      Alert.alert('שגיאה', 'נא למלא תעודת זהות וסיסמה');
-      return;
+  const showCrossPlatformAlert = (title: string, message: string) => {
+    if (Platform.OS === 'web') {
+      window.alert(`${title}\n\n${message}`);
+    } else {
+      Alert.alert(title, message);
     }
-    if (!isIdValid) {
-       Alert.alert('שגיאה', 'תעודת זהות חייבת להכיל בדיוק 9 ספרות');
+  };
+
+  const handleLogin = async () => {
+    setLoginAttempted(true);
+
+    if (!username || !password || !isIdValid) {
        return;
     }
 
@@ -83,29 +95,24 @@ export default function VolunteerAuthPage() {
         router.replace('/volunteer/volunteer-type' as any);
 
       } else if (response.status === 404 || data.detail === "USER_NOT_FOUND") {
-        // המשתמש לא קיים - מעבירים אותו למסך הרשמה מיד (עוקף את מגבלת הדפדפן)
-        setIsLogin(false);
-
-        // מציגים את ההודעה המזמינה
-        Alert.alert(
-          'ברוך הבא!',
-          'נראה שאתה מתנדב חדש במערכת. בוא נשלים את ההרשמה בקצרה.'
-        );
+        setShowNewUserModal(true);
       } else if (response.status === 401) {
         setServerPasswordError('הסיסמה שגויה. נסה שוב.');
       } else {
-        Alert.alert('שגיאה', data.detail || 'שגיאה בהתחברות. נסה שוב.');
+        showCrossPlatformAlert('שגיאה', data.detail || 'שגיאה בהתחברות. נסה שוב.');
       }
 
     } catch (error) {
+      console.log("🚨 שגיאה ב-catch:", error);
       setIsLoading(false);
-      Alert.alert('שגיאת תקשורת', 'לא מצליח להתחבר לשרת');
+      showCrossPlatformAlert('שגיאת תקשורת', 'לא מצליח להתחבר לשרת');
     }
   };
 
   const handleRegister = async () => {
-    if (!isIdValid || !isPasswordValid || !isNameValid || !isPhoneValid) {
-      Alert.alert('שגיאה', 'נא לתקן את השגיאות בשדות טרם ההרשמה');
+    setSubmitAttempted(true);
+
+    if (!isNameValid || !isPhoneValid || !isIdValid || !isPasswordValid) {
       return;
     }
 
@@ -119,15 +126,18 @@ export default function VolunteerAuthPage() {
       if (response.ok) {
         setFullName('');
         setPhoneNumber('');
+        setSubmitAttempted(false);
         setSuccessMessage(`✓ ברוך הבא ${data.full_name || ''}! נרשמת בהצלחה. הפרטים שלך כבר הוזנו, כעת נותר רק להתחבר.`);
         setIsLogin(true);
+      } else if (response.status === 409) {
+        setShowExistModal(true);
       } else {
-        Alert.alert('אופס...', data.error || 'ההרשמה נכשלה. נסו שוב.');
+        showCrossPlatformAlert('אופס...', data.detail || 'ההרשמה נכשלה. נסו שוב.');
       }
 
     } catch (error) {
       setIsLoading(false);
-      Alert.alert('שגיאת תקשורת', 'לא מצליח להתחבר לשרת. וודאו שהבאקאנד דולק!');
+      showCrossPlatformAlert('שגיאת תקשורת', 'לא מצליח להתחבר לשרת. וודאו שהבאקאנד דולק!');
     }
   };
 
@@ -149,20 +159,22 @@ export default function VolunteerAuthPage() {
 
           {!isLogin && (
             <>
+              {/* שדה שם מלא */}
               <TextInput
-                style={styles.input}
+                style={[styles.input, submitAttempted && !isNameValid && styles.inputError]}
                 placeholder="שם מלא"
                 placeholderTextColor="#999"
                 value={fullName}
                 onChangeText={setFullName}
                 textAlign="right"
               />
-              {fullName.length > 0 && !isNameValid && (
-                <Text style={styles.errorText}>יש להזין שם פרטי ושם משפחה</Text>
+              {submitAttempted && !isNameValid && (
+                <Text style={styles.errorText}>יש לכתוב שם מלא</Text>
               )}
 
+              {/* שדה טלפון */}
               <TextInput
-                style={styles.input}
+                style={[styles.input, submitAttempted && !isPhoneValid && styles.inputError]}
                 placeholder="מספר טלפון נייד"
                 placeholderTextColor="#999"
                 keyboardType="phone-pad"
@@ -170,14 +182,18 @@ export default function VolunteerAuthPage() {
                 onChangeText={setPhoneNumber}
                 textAlign="right"
               />
-              {phoneNumber.length > 0 && !isPhoneValid && (
-                <Text style={styles.errorText}>מספר טלפון חייב להכיל 10 ספרות</Text>
+              {submitAttempted && !isPhoneValid && (
+                <Text style={styles.errorText}>מספר פלאפון שגוי</Text>
               )}
             </>
           )}
 
+          {/* שדה תעודת זהות */}
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              (!isLogin && submitAttempted && !isIdValid) || (isLogin && loginAttempted && !isIdValid) ? styles.inputError : null
+            ]}
             placeholder="תעודת זהות"
             placeholderTextColor="#999"
             value={username}
@@ -186,12 +202,16 @@ export default function VolunteerAuthPage() {
             keyboardType="numeric"
             autoCapitalize="none"
           />
-          {username.length > 0 && !isIdValid && (
-            <Text style={styles.errorText}>תעודת זהות חייבת להכיל בדיוק 9 ספרות</Text>
+          {((!isLogin && submitAttempted && !isIdValid) || (isLogin && loginAttempted && !isIdValid)) && (
+            <Text style={styles.errorText}>תעודת זהות שגויה</Text>
           )}
 
+          {/* שדה סיסמה */}
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              (!isLogin && submitAttempted && !isPasswordValid) || (isLogin && loginAttempted && !password) || (isLogin && !!serverPasswordError) ? styles.inputError : null
+            ]}
             placeholder="סיסמה"
             placeholderTextColor="#999"
             secureTextEntry
@@ -202,13 +222,15 @@ export default function VolunteerAuthPage() {
             }}
             textAlign="right"
           />
+          {!isLogin && submitAttempted && !isPasswordValid && (
+            <Text style={styles.errorText}>הסיסמה חייבת להכיל 8 תווים, כולל אות קטנה, גדולה ומספר</Text>
+          )}
+          {isLogin && loginAttempted && !password && (
+            <Text style={styles.errorText}>נא להזין סיסמה</Text>
+          )}
           {isLogin && serverPasswordError ? (
             <Text style={styles.errorText}>{serverPasswordError}</Text>
           ) : null}
-
-          {!isLogin && password.length > 0 && !isPasswordValid && (
-            <Text style={styles.errorText}>הסיסמה חייבת להכיל לפחות 8 תווים, כולל אות גדולה, אות קטנה ומספר</Text>
-          )}
 
           <TouchableOpacity
             style={[common.buttonPrimary, { marginTop: 10 }]}
@@ -230,6 +252,9 @@ export default function VolunteerAuthPage() {
               setIsLogin(!isLogin);
               setSuccessMessage('');
               setServerPasswordError('');
+              setPassword('');
+              setSubmitAttempted(false);
+              setLoginAttempted(false);
             }}
           >
             <Text style={styles.switchText}>
@@ -249,6 +274,71 @@ export default function VolunteerAuthPage() {
         </TouchableOpacity>
 
       </View>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showExistModal}
+        onRequestClose={() => setShowExistModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>המשתמש כבר קיים</Text>
+            <Text style={styles.modalText}>
+              תעודת הזהות שהזנת כבר רשומה במערכת. לחץ על 'מעבר להתחברות' כדי להיכנס למשתמש שלך.
+            </Text>
+
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowExistModal(false)}
+              >
+                <Text style={styles.modalCancelBtnText}>ביטול</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalConfirmBtn}
+                onPress={() => {
+                  setShowExistModal(false);
+                  setPassword('');
+                  setIsLogin(true);
+                }}
+              >
+                <Text style={styles.modalConfirmBtnText}>מעבר להתחברות</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showNewUserModal}
+        onRequestClose={() => setShowNewUserModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>ברוך הבא!</Text>
+            <Text style={styles.modalText}>
+              נראה שאתה מתנדב חדש במערכת. בוא נשלים את ההרשמה בקצרה.
+            </Text>
+
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity
+                style={[styles.modalConfirmBtn, { flex: 1 }]}
+                onPress={() => {
+                  setShowNewUserModal(false);
+                  setIsLogin(false);
+                }}
+              >
+                <Text style={styles.modalConfirmBtnText}>המשך להרשמה</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </ScreenWrapper>
   );
 }
@@ -266,6 +356,10 @@ const styles = StyleSheet.create({
     borderColor: colors.inputBorder,
     fontSize: 16,
     color: '#333',
+  },
+  inputError: {
+    borderColor: '#d32f2f',
+    borderWidth: 1.5,
   },
   errorText: {
     color: '#d32f2f',
@@ -291,5 +385,69 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 15,
     fontWeight: '600',
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 350,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 12,
+  },
+  modalText: {
+    fontSize: 15,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    backgroundColor: '#f1f1f1',
+    borderRadius: 8,
+    marginRight: 10,
+    alignItems: 'center',
+  },
+  modalCancelBtnText: {
+    color: '#555',
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  modalConfirmBtn: {
+    flex: 1.5,
+    paddingVertical: 12,
+    backgroundColor: colors.primaryBlue,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalConfirmBtnText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 15,
   },
 });
