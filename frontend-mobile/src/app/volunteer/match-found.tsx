@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, Alert, Linking, ActivityIndicator, Platform } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, Alert, Linking, ActivityIndicator, Platform, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import ScreenWrapper from '@/components/ScreenWrapper';
 import { colors } from '@/styles/colors';
@@ -29,7 +29,6 @@ export default function MatchFoundPage() {
 
       const data = await response.json();
       if (response.ok && data.status === 'success') {
-        // 🔥 בום! נסיעה מאושרת במכה אחת
         setNavigationUrl(data.navigation_url || null);
         setPassengerPhone(data.patient_phone || '058-4657588');
         setIsConfirmed(true);
@@ -80,8 +79,16 @@ export default function MatchFoundPage() {
               {isConfirming ? <ActivityIndicator color="#fff" /> : <Text style={common.buttonTextPrimary}>אישור נסיעה ויציאה לדרך 🤝</Text>}
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity style={[common.buttonPrimary, { backgroundColor: '#2ed573' }]} onPress={handleOpenNavigation}>
-              <Text style={common.buttonTextPrimary}>🗺️ פתח מפת ניווט (Waze / גוגל)</Text>
+            <TouchableOpacity
+              style={[common.buttonPrimary, { backgroundColor: '#4285F4', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
+              onPress={handleOpenNavigation}
+            >
+              <Image
+                source={{ uri: 'https://img.icons8.com/color/48/000000/google-maps-new.png' }}
+                style={{ width: 26, height: 26, marginLeft: 10 }}
+                resizeMode="contain"
+              />
+              <Text style={common.buttonTextPrimary}>פתח ניווט ב-Google Maps</Text>
             </TouchableOpacity>
           )}
 
