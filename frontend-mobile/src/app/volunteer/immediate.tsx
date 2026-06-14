@@ -21,7 +21,6 @@ export default function ImmediateRideFormPage() {
   const [errors, setErrors] = useState<{[key: string]: string}>({});
 
   const handleNext = () => {
-    // בדיקת חובה לשדות לפי התבנית של ללי
     const newErrors: {[key: string]: string} = {};
     if (!origin.trim()) newErrors.origin = 'חובה להזין נקודת מוצא';
     if (!destination.trim()) newErrors.destination = 'חובה להזין נקודת יעד';
@@ -39,12 +38,11 @@ export default function ImmediateRideFormPage() {
       seats_count: seatsCount,
     };
 
-    // המעבר המעודכן: שולח לדף הסיכום הגלובלי ומספר לו שזו נסיעה עכשווית!
     router.push({
       pathname: '/volunteer/volunteer-ride-summary' as any,
-      params: { 
+      params: {
         rideData: JSON.stringify(volunteerRideData),
-        typeTitle: 'התנדבות מיידית' 
+        typeTitle: 'התנדבות מיידית'
       },
     });
   };
@@ -52,8 +50,7 @@ export default function ImmediateRideFormPage() {
   return (
     <ScreenWrapper scrollable>
       <View style={styles.container}>
-
-        <Text style={styles.title}>נסיעה עכשווית</Text>
+        <Text style={styles.title}>נסיעת חסד עכשווית</Text>
         <View style={common.divider} />
 
         <View style={common.card}>
@@ -61,6 +58,7 @@ export default function ImmediateRideFormPage() {
           <TextInput
             style={[styles.input, errors.origin ? styles.inputError : null]}
             placeholder="מאיפה אתה יוצא?"
+            placeholderTextColor="#999"
             value={origin}
             onChangeText={(text) => { setOrigin(text); setErrors(e => ({...e, origin: ''})); }}
             textAlign="right"
@@ -71,38 +69,45 @@ export default function ImmediateRideFormPage() {
           <TextInput
             style={[styles.input, errors.destination ? styles.inputError : null]}
             placeholder="לאן אתה נוסע?"
+            placeholderTextColor="#999"
             value={destination}
             onChangeText={(text) => { setDestination(text); setErrors(e => ({...e, destination: ''})); }}
             textAlign="right"
           />
           {errors.destination ? <Text style={styles.errorText}>{errors.destination}</Text> : null}
 
-          <Text style={styles.label}>מס׳ דקות חסד</Text>
+          <Text style={styles.label}>מספר דקות חסד</Text>
           <TextInput
             style={[styles.input, errors.hesedMinutes ? styles.inputError : null]}
             placeholder="כמה דקות תוכל לסטות מהדרך?"
+            placeholderTextColor="#999"
             value={hesedMinutes}
-            onChangeText={(text) => { setHesedMinutes(text); setErrors(e => ({...e, hesedMinutes: ''})); }}
+            onChangeText={(text) => {
+                setHesedMinutes(text.replace(/[^0-9]/g, ''));
+                setErrors(e => ({...e, hesedMinutes: ''}));
+            }}
             textAlign="right"
             keyboardType="numeric"
           />
           {errors.hesedMinutes ? <Text style={styles.errorText}>{errors.hesedMinutes}</Text> : null}
 
-          <Text style={styles.label}>מספר מושבים פנויים</Text>
-          <View style={styles.counterRow}>
-            <TouchableOpacity
-              style={styles.counterBtn}
-              onPress={() => setSeatsCount(Math.min(8, seatsCount + 1))}
-            >
-              <Text style={styles.counterBtnText}>+</Text>
-            </TouchableOpacity>
-            <Text style={styles.counterValue}>{seatsCount}</Text>
-            <TouchableOpacity
-              style={styles.counterBtn}
-              onPress={() => setSeatsCount(Math.max(1, seatsCount - 1))}
-            >
-              <Text style={styles.counterBtnText}>-</Text>
-            </TouchableOpacity>
+          <View style={styles.seatsContainer}>
+            <Text style={styles.label}>מספר מושבים פנויים</Text>
+            <View style={styles.counterRow}>
+              <TouchableOpacity
+                style={styles.counterBtn}
+                onPress={() => setSeatsCount(Math.max(1, seatsCount - 1))}
+              >
+                <Text style={styles.counterBtnText}>-</Text>
+              </TouchableOpacity>
+              <Text style={styles.counterValue}>{seatsCount}</Text>
+              <TouchableOpacity
+                style={styles.counterBtn}
+                onPress={() => setSeatsCount(Math.min(8, seatsCount + 1))}
+              >
+                <Text style={styles.counterBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -114,15 +119,10 @@ export default function ImmediateRideFormPage() {
           >
             <Text style={common.buttonTextPrimary}>המשך</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => router.back()}
-          >
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
             <Text style={styles.backText}>→ חזרה</Text>
           </TouchableOpacity>
         </View>
-
       </View>
     </ScreenWrapper>
   );
@@ -131,20 +131,22 @@ export default function ImmediateRideFormPage() {
 const styles = StyleSheet.create({
   container: { padding: 24, gap: 16 },
   title: { ...typography.h2, textAlign: 'center', color: colors.primaryNavy },
-  label: { ...typography.label, marginBottom: 6, textAlign: 'right' },
+  label: { ...typography.label, marginBottom: 6, textAlign: 'right', fontWeight: 'bold' },
   input: {
     height: 50,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#ffffff',
     borderRadius: 10,
     paddingHorizontal: 16,
     marginBottom: 4,
     borderWidth: 1,
-    borderColor: colors.inputBorder,
+    borderColor: '#e0e0e0',
     fontSize: 16,
+    textAlign: 'right',
   },
   inputError: { borderColor: 'red', borderWidth: 2 },
   errorText: { color: 'red', fontSize: 12, textAlign: 'right', marginBottom: 10 },
-  counterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24, marginTop: 8, marginBottom: 8 },
+  seatsContainer: { marginTop: 15 },
+  counterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24, marginTop: 8 },
   counterBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primaryBlue, alignItems: 'center', justifyContent: 'center' },
   counterBtnText: { color: colors.white, fontSize: 22, fontWeight: '600' },
   counterValue: { ...typography.h2, minWidth: 40, textAlign: 'center' },
