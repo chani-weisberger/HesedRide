@@ -11,15 +11,14 @@ import {
     Text,
     View,
     Platform,
-    TouchableOpacity
+    TouchableOpacity,
+    Modal // <--- ייבוא הקומפוננטה של המודאל
 } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-// ייבוא בטוח ל-AsyncStorage
+
 const AsyncStorage = Platform.OS !== 'web'
   ? require('@react-native-async-storage/async-storage').default
   : null;
-
-
 
 export default function VolunteerWaitingForRiderPage() {
   const { volunteer_ride_id, match_found, match_details, rideData } = useLocalSearchParams<{
@@ -41,62 +40,60 @@ export default function VolunteerWaitingForRiderPage() {
     } catch (error) { return AsyncStorage ? await AsyncStorage.getItem('userToken') : null; }
   };
 
- const createRideAndStartPolling = async (rideJson: string) => {
-  try {
-    const ride = JSON.parse(rideJson);
-    const token = await getAuthToken();
-    let userId = null;
-      if (Platform.OS === 'web') {
-        userId = localStorage.getItem('userId');
-      } else {
-        userId = await SecureStore.getItemAsync('userId');
+  const createRideAndStartPolling = async (rideJson: string) => {
+    try {
+      const ride = JSON.parse(rideJson);
+      const token = await getAuthToken();
+      let userId = null;
+        if (Platform.OS === 'web') {
+          userId = localStorage.getItem('userId');
+        } else {
+          userId = await SecureStore.getItemAsync('userId');
+        }
+
+      if (!userId) {
+        Alert.alert('שגיאה', 'לא נמצא מזהה משתמש. אנא התחברי מחדש.');
+        router.replace('/volunteer/login');
+        return;
       }
 
-    // בדיקה קריטית: האם יש לנו ID?
-    if (!userId) {
-      Alert.alert('שגיאה', 'לא נמצא מזהה משתמש. אנא התחברי מחדש.');
-      router.replace('/volunteer/login');
-      return;
+      const response = await fetch('http://127.0.0.1:8000/api/rides/volunteer/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+            source_location: ride.origin,
+            destination_location: ride.destination,
+            available_seats: Number(ride.seats_count),
+            grace_minutes: Number(ride.hesed_minutes),
+            volunteer_id: Number(userId),
+        })
+      });
+
+      if (!response.ok) {
+          const errorData = await response.json();
+          console.log("Server Error Details:", errorData);
+          Alert.alert('שגיאה', errorData.detail || 'לא הצלחנו ליצור את הנסיעה');
+          router.back();
+          return;
+      }
+
+      const data = await response.json();
+      setIsCreating(false);
+
+      if (data.match_found) {
+          router.replace({
+              pathname: '/volunteer/match-found',
+              params: { ...data.match_details, volunteer_ride_id: data.volunteer_ride_id }
+          });
+      } else {
+          startPollingFlow(data.volunteer_ride_id);
+      }
+    } catch (e) {
+      console.log("Communication Error:", e);
+      Alert.alert('שגיאה', 'בעיית תקשורת');
+      router.back();
     }
-
-    const response = await fetch('http://127.0.0.1:8000/api/rides/volunteer/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({
-          source_location: ride.origin,
-          destination_location: ride.destination,
-          available_seats: Number(ride.seats_count),
-          grace_minutes: Number(ride.hesed_minutes),
-          volunteer_id: Number(userId),
-      })
-    });
-
-    // נקודה חשובה: נדפיס את השגיאה אם השרת מחזיר אחת
-    if (!response.ok) {
-        const errorData = await response.json();
-        console.log("Server Error Details:", errorData);
-        Alert.alert('שגיאה', errorData.detail || 'לא הצלחנו ליצור את הנסיעה');
-        router.back();
-        return;
-    }
-
-    const data = await response.json();
-    setIsCreating(false);
-
-    if (data.match_found) {
-        router.replace({
-            pathname: '/volunteer/match-found',
-            params: { ...data.match_details, volunteer_ride_id: data.volunteer_ride_id }
-        });
-    } else {
-        startPollingFlow(data.volunteer_ride_id);
-    }
-  } catch (e) {
-    console.log("Communication Error:", e);
-    Alert.alert('שגיאה', 'בעיית תקשורת');
-    router.back();
-  }
-};
+  };
 
   const startPollingFlow = (rideId: string) => {
     let isMatchFound = false;
@@ -142,7 +139,7 @@ export default function VolunteerWaitingForRiderPage() {
         if (!isMatchFound) {
             clearInterval(intervalId);
             autoCancelRideInBackend();
-            setShowTimeoutMessage(true);
+            setShowTimeoutMessage(true); // זה עכשיו יפעיל את המודאל!
         }
     }, 3000);
 
@@ -150,7 +147,6 @@ export default function VolunteerWaitingForRiderPage() {
   };
 
   useEffect(() => {
-    // 1. מקרה של התאמה קיימת (העברה מהסיכום)
     if (match_found === 'true' && match_details) {
       const timer = setTimeout(() => {
         router.replace({ pathname: '/volunteer/match-found', params: { ...JSON.parse(match_details), volunteer_ride_id } });
@@ -158,35 +154,19 @@ export default function VolunteerWaitingForRiderPage() {
       return () => clearTimeout(timer);
     }
 
-    // 2. מקרה של יצירת נסיעה חדשה
     if (rideData && !volunteer_ride_id) {
         createRideAndStartPolling(rideData);
         return;
     }
 
-    // 3. מקרה של פוללינג רגיל
     if (volunteer_ride_id) {
         return startPollingFlow(volunteer_ride_id);
     }
   }, [volunteer_ride_id, rideData, match_found, match_details]);
 
-  if (showTimeoutMessage) {
-    return (
-      <ScreenWrapper>
-        <View style={styles.container}>
-          <Text style={styles.emoji}>❤️</Text>
-          <Text style={styles.title}>תודה רבה!</Text>
-          <Text style={styles.subtitle}>כל הכבוד על הרצון והלב החם להתנדב! כרגע אין חולה במאגר שזקוק להסעה במסלול זה.</Text>
-          <TouchableOpacity style={styles.homeBtn} onPress={() => router.replace('/volunteer/volunteer-type')}>
-            <Text style={styles.homeBtnText}>חזרה למסך הבית</Text>
-          </TouchableOpacity>
-        </View>
-      </ScreenWrapper>
-    );
-  }
-
   return (
     <ScreenWrapper>
+      {/* מסך הטעינה שתמיד נשאר ברקע */}
       <View style={styles.container}>
         <Text style={styles.title}>{isCreating ? 'מפרסם את הנסיעה...' : 'מחפשים לך נוסע...'}</Text>
         <Text style={styles.subtitle}>אנא המתן, המערכת מנסה להתאים חולה למסלול שלך ברגעים אלו</Text>
@@ -194,17 +174,63 @@ export default function VolunteerWaitingForRiderPage() {
           <ActivityIndicator size="large" color={colors.primaryBlue} style={styles.loader} />
         </View>
       </View>
+
+      {/* המודאל שקופץ כשאין התאמה */}
+      <Modal
+        visible={showTimeoutMessage}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.emoji}>❤️</Text>
+            <Text style={styles.modalTitle}>תודה רבה!</Text>
+            <Text style={styles.modalSubtitle}>כל הכבוד על הרצון והלב החם להתנדב! כרגע אין חולה במאגר שזקוק להסעה במסלול זה.</Text>
+            <TouchableOpacity
+              style={styles.homeBtn}
+              onPress={() => router.replace('/volunteer/volunteer-type')}
+            >
+              <Text style={styles.homeBtnText}>חזרה למסך הבית</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, justifyContent: 'center', alignItems: 'center', gap: 20 },
-  emoji: { fontSize: 64, marginBottom: 10 },
   title: { ...typography.h2, color: colors.primaryNavy, textAlign: 'center' },
   subtitle: { ...typography.bodySecondary, textAlign: 'center', paddingHorizontal: 20, lineHeight: 24 },
   loaderContainer: { marginVertical: 40, justifyContent: 'center', alignItems: 'center' },
   loader: { transform: [{ scale: 1.5 }] },
-  homeBtn: { backgroundColor: colors.primaryBlue, paddingVertical: 16, paddingHorizontal: 32, borderRadius: 12, marginTop: 30, width: '100%', alignItems: 'center' },
+
+  // עיצוב למודאל החדש
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', // רקע חצי שקוף וכהה
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: colors.white,
+    padding: 30,
+    borderRadius: 16,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 400,
+    elevation: 5, // צל עבור אנדרואיד
+    shadowColor: '#000', // צל עבור אייפון
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  emoji: { fontSize: 50, marginBottom: 15 },
+  modalTitle: { ...typography.h2, color: colors.primaryNavy, textAlign: 'center', marginBottom: 10 },
+  modalSubtitle: { ...typography.bodySecondary, textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+  homeBtn: { backgroundColor: colors.primaryBlue, paddingVertical: 14, paddingHorizontal: 32, borderRadius: 12, width: '100%', alignItems: 'center' },
   homeBtnText: { color: colors.white, fontSize: 16, fontWeight: 'bold' }
 });
