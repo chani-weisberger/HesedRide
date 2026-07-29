@@ -14,6 +14,7 @@ import { common } from '@/styles/common';
 import { typography } from '@/styles/typography';
 import { RideRequest } from '@/services/rideService';
 import { validateRideForm } from '@/utils/validation';
+import AddressInput from '@/components/AddressInput';
 
 export default function RideFormPage() {
 
@@ -59,26 +60,31 @@ export default function RideFormPage() {
         <View style={common.divider} />
 
         <View style={common.card}>
-          <Text style={styles.sectionTitle}>פרטי הנסיעה</Text>
+<Text style={styles.sectionTitle}>פרטי הנסיעה</Text>
 
           <Text style={styles.label}>כתובת מוצא</Text>
-          <TextInput
-            style={[styles.input, errors.origin ? styles.inputError : null]}
-            placeholder="לדוגמה: רחוב הרצל 10, תל אביב"
-            value={origin}
-            onChangeText={(text) => { setOrigin(text); setErrors(e => ({...e, origin: ''})); }}
-            textAlign="right"
-          />
+          {/* zIndex גבוה יותר למוצא כדי שהרשימה תפתח מעל שדה היעד */}
+          <View style={{ zIndex: 20, marginBottom: 4 }}>
+            <AddressInput
+              placeholder="לדוגמה: רחוב הרצל 10, תל אביב"
+              onAddressSelect={(address) => {
+                setOrigin(address);
+                setErrors(e => ({...e, origin: ''}));
+              }}
+            />
+          </View>
           {errors.origin ? <Text style={styles.errorText}>{errors.origin}</Text> : null}
 
           <Text style={styles.label}>כתובת יעד</Text>
-          <TextInput
-            style={[styles.input, errors.destination ? styles.inputError : null]}
-            placeholder="לדוגמה: בית חולים איכילוב"
-            value={destination}
-            onChangeText={(text) => { setDestination(text); setErrors(e => ({...e, destination: ''})); }}
-            textAlign="right"
-          />
+          <View style={{ zIndex: 10, marginBottom: 4 }}>
+            <AddressInput
+              placeholder="לדוגמה: בית חולים איכילוב"
+              onAddressSelect={(address) => {
+                setDestination(address);
+                setErrors(e => ({...e, destination: ''}));
+              }}
+            />
+          </View>
           {errors.destination ? <Text style={styles.errorText}>{errors.destination}</Text> : null}
 
           <Text style={styles.label}>מספר נוסעים</Text>

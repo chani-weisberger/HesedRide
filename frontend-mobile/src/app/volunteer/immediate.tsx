@@ -1,5 +1,6 @@
 // volunteer/immediate.tsx — טופס הזנת נסיעה עכשווית (צד מתנדב)
 import ScreenWrapper from '@/components/ScreenWrapper';
+import AddressInput from '@/components/AddressInput';
 import { colors } from '@/styles/colors';
 import { common } from '@/styles/common';
 import { typography } from '@/styles/typography';
@@ -53,27 +54,29 @@ export default function ImmediateRideFormPage() {
         <Text style={styles.title}>נסיעת חסד עכשווית</Text>
         <View style={common.divider} />
 
-        <View style={common.card}>
+<View style={common.card}>
           <Text style={styles.label}>נקודת מוצא</Text>
-          <TextInput
-            style={[styles.input, errors.origin ? styles.inputError : null]}
-            placeholder="מאיפה אתה יוצא?"
-            placeholderTextColor="#999"
-            value={origin}
-            onChangeText={(text) => { setOrigin(text); setErrors(e => ({...e, origin: ''})); }}
-            textAlign="right"
-          />
+          <View style={{ zIndex: 20, marginBottom: 4 }}>
+            <AddressInput
+              placeholder="מאיפה אתה יוצא?"
+              onAddressSelect={(address) => {
+                setOrigin(address);
+                setErrors(e => ({...e, origin: ''}));
+              }}
+            />
+          </View>
           {errors.origin ? <Text style={styles.errorText}>{errors.origin}</Text> : null}
 
           <Text style={styles.label}>נקודת יעד</Text>
-          <TextInput
-            style={[styles.input, errors.destination ? styles.inputError : null]}
-            placeholder="לאן אתה נוסע?"
-            placeholderTextColor="#999"
-            value={destination}
-            onChangeText={(text) => { setDestination(text); setErrors(e => ({...e, destination: ''})); }}
-            textAlign="right"
-          />
+          <View style={{ zIndex: 10, marginBottom: 4 }}>
+            <AddressInput
+              placeholder="לאן אתה נוסע?"
+              onAddressSelect={(address) => {
+                setDestination(address);
+                setErrors(e => ({...e, destination: ''}));
+              }}
+            />
+          </View>
           {errors.destination ? <Text style={styles.errorText}>{errors.destination}</Text> : null}
 
           <Text style={styles.label}>מספר דקות חסד</Text>
