@@ -35,8 +35,9 @@ class VolunteerRide(Base):
     destination_location = Column(String, nullable=False)
     available_seats = Column(Integer, nullable=False)
     grace_minutes = Column(Integer, nullable=False)
-    status = Column(String, default="pending")  # pending, proposed, confirmed
+    status = Column(String, default="pending")  # # pending, proposed, confirmed, expired, cancelled
     created_at = Column(DateTime, default=func.now())
+    proposed_at = Column(DateTime, nullable=True)
     matched_request_id = Column(Integer, ForeignKey("ride_requests.id"), nullable=True)
     matched_request = relationship("RideRequest", backref="matched_volunteer")
     volunteer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
