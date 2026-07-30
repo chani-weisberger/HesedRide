@@ -1,6 +1,3 @@
-// ride-type.tsx — בחירת סוג הזמנה
-// הנוסע בוחר אם הנסיעה מיידית, עתידית או קבועה
-
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import ScreenWrapper from '@/components/ScreenWrapper';
@@ -8,32 +5,16 @@ import { colors } from '@/styles/colors';
 import { common } from '@/styles/common';
 import { typography } from '@/styles/typography';
 
-// כל אפשרות בתפריט מוגדרת כאן — קל להוסיף/לשנות
+// השארנו רק את אפשרות הנסיעה המיידית
 const RIDE_OPTIONS = [
   {
     id: 'immediate',
-    title: 'הזמנה מיידית',
+    title: 'הזמנת נסיעה',
     desc: 'אני צריך/ה נסיעה עכשיו',
-    emoji: '⚡',
+    emoji: '🚗',
     bgColor: '#fef3c7',
     route: '/rider/ride-form?type=immediate',
-  },
-  {
-    id: 'future',
-    title: 'הזמנה עתידית',
-    desc: 'תאריך ושעה ספציפיים',
-    emoji: '📅',
-    bgColor: '#dbeafe',
-    route: '/rider/ride-form?type=future',
-  },
-  {
-    id: 'recurring',
-    title: 'הזמנה קבועה',
-    desc: 'נסיעה חוזרת באותם ימים ושעות',
-    emoji: '🔁',
-    bgColor: '#d1fae5',
-    route: '/rider/ride-form?type=recurring',
-  },
+  }
 ];
 
 export default function RideTypePage() {
@@ -41,17 +22,15 @@ export default function RideTypePage() {
     <ScreenWrapper>
       <View style={styles.container}>
 
-        {/* כותרת */}
         <View style={styles.header}>
           <Text style={typography.h2}>בקשת נסיעה</Text>
           <Text style={[typography.bodySecondary, styles.subtitle]}>
-            בחרי את סוג ההזמנה המתאים
+            המערכת תחפש עבורך מתנדב זמין
           </Text>
         </View>
 
         <View style={common.divider} />
 
-        {/* רשימת אפשרויות */}
         <View style={styles.list}>
           {RIDE_OPTIONS.map((option) => (
             <TouchableOpacity
@@ -60,24 +39,20 @@ export default function RideTypePage() {
               onPress={() => router.push(option.route as any)}
               activeOpacity={0.8}
             >
-              {/* אייקון */}
               <View style={[styles.iconWrap, { backgroundColor: option.bgColor }]}>
                 <Text style={styles.emoji}>{option.emoji}</Text>
               </View>
 
-              {/* טקסט */}
               <View style={styles.optionText}>
                 <Text style={styles.optionTitle}>{option.title}</Text>
                 <Text style={styles.optionDesc}>{option.desc}</Text>
               </View>
 
-              {/* חץ */}
               <Text style={styles.arrow}>←</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* כפתור חזרה */}
         <TouchableOpacity
           style={styles.backBtn}
           onPress={() => router.back()}
@@ -109,7 +84,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   optionBtn: {
-    flexDirection: 'row-reverse',  // RTL — האייקון מימין
+    flexDirection: 'row-reverse',
     alignItems: 'center',
     gap: 14,
     padding: 18,
@@ -130,7 +105,7 @@ const styles = StyleSheet.create({
   },
   optionText: {
     flex: 1,
-    alignItems: 'flex-end',  // טקסט מיושר לימין
+    alignItems: 'flex-end',
   },
   optionTitle: {
     fontSize: 16,

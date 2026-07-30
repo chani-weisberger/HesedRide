@@ -1,4 +1,3 @@
-// volunteer/dashboard.tsx — דשבורד המתנדב
 import { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Platform } from 'react-native';
 import { router } from 'expo-router';
@@ -12,31 +11,16 @@ const AsyncStorage = Platform.OS !== 'web'
   ? require('@react-native-async-storage/async-storage').default
   : null;
 
+// השארנו רק את אפשרות התנדבות בזמן אמת
 const VOLUNTEER_OPTIONS = [
   {
     id: 'immediate',
-    title: 'התנדבות מיידית',
-    desc: 'אני פנוי/ה עכשיו לסייע',
+    title: 'התנדבות עכשיו',
+    desc: 'אני פנוי/ה לסייע ברגע זה',
     emoji: '⚡',
     bgColor: '#fef3c7',
     route: '/volunteer/immediate',
-  },
-  {
-    id: 'future',
-    title: 'התנדבות עתידית',
-    desc: 'תאריך ושעה ספציפיים',
-    emoji: '📅',
-    bgColor: '#dbeafe',
-    route: '/volunteer/future',
-  },
-  {
-    id: 'recurring',
-    title: 'התנדבות קבועה',
-    desc: 'נסיעה חוזרת באותם ימים ושעות',
-    emoji: '🔁',
-    bgColor: '#d1fae5',
-    route: '/volunteer/recurring',
-  },
+  }
 ];
 
 export default function VolunteerDashboard() {
@@ -47,7 +31,6 @@ export default function VolunteerDashboard() {
       try {
         let storedName = null;
 
-        // שליפת השם מהזיכרון בהתאם לפלטפורמה (ווב או מובייל)
         if (Platform.OS === 'web') {
           storedName = localStorage.getItem('userName');
         } else {
@@ -61,7 +44,6 @@ export default function VolunteerDashboard() {
         }
 
         if (storedName) {
-          // לוקחים רק את המילה הראשונה (השם הפרטי) מהשם המלא
           const first = storedName.trim().split(/\s+/)[0];
           setFirstName(first);
         }
@@ -80,7 +62,7 @@ export default function VolunteerDashboard() {
         <View style={styles.header}>
           <Text style={typography.h2}>שלום {firstName}!</Text>
           <Text style={[typography.bodySecondary, styles.subtitle]}>
-            כיצד תרצה להתנדב היום?
+            מוכן/ה להתנדב עכשיו?
           </Text>
         </View>
 
@@ -111,7 +93,6 @@ export default function VolunteerDashboard() {
         <TouchableOpacity
           style={styles.logoutBtn}
           onPress={() => {
-            // רשות: ניקוי הזיכרון ביציאה
             if (Platform.OS === 'web') {
               localStorage.clear();
             }
