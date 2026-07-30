@@ -68,6 +68,9 @@ def create_volunteer_ride(volunteer_data: schemas.VolunteerRideCreate, db: Sessi
                 }
             }
 
+        new_volunteer_ride.status = "cancelled"
+        db.commit()
+
         return {
             "status": "success",
             "message": "נסיעת המתנדב נרשמה בהצלחה. לא נמצא נוסע מתאים כרגע.",

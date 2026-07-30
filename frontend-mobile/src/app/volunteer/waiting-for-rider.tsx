@@ -86,7 +86,11 @@ export default function VolunteerWaitingForRiderPage() {
               params: { ...data.match_details, volunteer_ride_id: data.volunteer_ride_id }
           });
       } else {
-          startPollingFlow(data.volunteer_ride_id);
+          setShowTimeoutMessage(true);
+
+          setTimeout(() => {
+              router.replace('/volunteer/volunteer-type');
+          }, 10000);
       }
     } catch (e) {
       console.log("Communication Error:", e);

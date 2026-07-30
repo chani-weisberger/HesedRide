@@ -48,8 +48,8 @@ def find_best_match(v_ride: VolunteerRide, db: Session):
         print(f"DEBUG FIND_MATCH - Request {request.id} deviation calculated: {deviation_minutes} mins (Grace allowed: {v_ride.grace_minutes})")
 
         if deviation_minutes is not None and deviation_minutes <= v_ride.grace_minutes:
-            request.status = "proposed"  # עדכון הסטטוס כדי שאחרים לא ייגעו בה
-            v_ride.matched_request_id = request.id
+            request.status = "proposed"
+            v_ride.status = "proposed"
             db.commit()
             print(f"DEBUG FIND_MATCH - MATCH FOUND! Request {request.id} matched with Volunteer {v_ride.id}")
             return request
