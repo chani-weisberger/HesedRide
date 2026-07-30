@@ -20,17 +20,26 @@ def calculate_total_deviation(v_ride: VolunteerRide, r_request: RideRequest) -> 
     return combined_time - original_time
 
 def find_best_match(v_ride: VolunteerRide, db: Session):
-    # Stage 1: Retrieving pending requests
-    pending_requests = db.query(RideRequest). \
+    # Stage 1: Retrieving only pending request IDs without global locking
+    pending_ids = db.query(RideRequest.id). \
         filter(RideRequest.status == "pending"). \
         order_by(RideRequest.created_at.asc()). \
-        with_for_update(skip_locked=True). \
         all()
 
-    print(f"DEBUG FIND_MATCH - Found {len(pending_requests)} pending requests to check against volunteer {v_ride.id}")
+    print(f"DEBUG FIND_MATCH - Found {len(pending_ids)} pending request IDs to check against volunteer {v_ride.id}")
 
-    # Stage 2: Loop through requests
-    for request in pending_requests:
+    # Stage 2: Loop through request IDs and lock them one by one safely
+    for (req_id,) in pending_ids:
+        # נעילה נקודתית ושקטה אך ורק לבקשה הנוכחית
+        request = db.query(RideRequest). \
+            filter(RideRequest.id == req_id, RideRequest.status == "pending"). \
+            with_for_update(skip_locked=True). \
+            first()
+
+        if not request:
+            # אם מישהו אחר תפס את הבקשה הזו ממש עכשיו, מדלגים לבקשה הבאה
+            continue
+
         if request.passenger_count > v_ride.available_seats:
             print(f"DEBUG FIND_MATCH - Request {request.id} skipped: too many passengers ({request.passenger_count} > {v_ride.available_seats})")
             continue
@@ -39,7 +48,9 @@ def find_best_match(v_ride: VolunteerRide, db: Session):
         print(f"DEBUG FIND_MATCH - Request {request.id} deviation calculated: {deviation_minutes} mins (Grace allowed: {v_ride.grace_minutes})")
 
         if deviation_minutes is not None and deviation_minutes <= v_ride.grace_minutes:
+            request.status = "proposed"  # עדכון הסטטוס כדי שאחרים לא ייגעו בה
             v_ride.matched_request_id = request.id
+            db.commit()
             print(f"DEBUG FIND_MATCH - MATCH FOUND! Request {request.id} matched with Volunteer {v_ride.id}")
             return request
 
