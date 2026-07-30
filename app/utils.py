@@ -11,6 +11,8 @@ def calculate_total_deviation(v_ride: VolunteerRide, r_request: RideRequest) -> 
     passenger_ride_time = get_travel_time_minutes(r_request.origin, r_request.destination)
     time_to_final_destination = get_travel_time_minutes(r_request.destination, v_ride.destination_location)
 
+    print(f"DEBUG MAPS - original_time: {original_time}, to_passenger: {time_to_passenger}, ride_time: {passenger_ride_time}, to_final: {time_to_final_destination}")
+
     if None in (original_time, time_to_passenger, passenger_ride_time, time_to_final_destination):
         return None
 
@@ -25,15 +27,21 @@ def find_best_match(v_ride: VolunteerRide, db: Session):
         with_for_update(skip_locked=True). \
         all()
 
+    print(f"DEBUG FIND_MATCH - Found {len(pending_requests)} pending requests to check against volunteer {v_ride.id}")
+
     # Stage 2: Loop through requests
     for request in pending_requests:
         if request.passenger_count > v_ride.available_seats:
+            print(f"DEBUG FIND_MATCH - Request {request.id} skipped: too many passengers ({request.passenger_count} > {v_ride.available_seats})")
             continue
 
         deviation_minutes = calculate_total_deviation(v_ride, request)
+        print(f"DEBUG FIND_MATCH - Request {request.id} deviation calculated: {deviation_minutes} mins (Grace allowed: {v_ride.grace_minutes})")
 
         if deviation_minutes is not None and deviation_minutes <= v_ride.grace_minutes:
             v_ride.matched_request_id = request.id
+            print(f"DEBUG FIND_MATCH - MATCH FOUND! Request {request.id} matched with Volunteer {v_ride.id}")
             return request
 
+    print(f"DEBUG FIND_MATCH - No matching request found for volunteer {v_ride.id}")
     return None
