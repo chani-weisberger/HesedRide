@@ -110,6 +110,7 @@ def cancel_volunteer_ride(volunteer_ride_id: int, db: Session = Depends(get_db))
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
 
+
 @router.post("/confirm")
 def confirm_ride_match(confirm_data: schemas.RideConfirmRequest, user_type: str = None, db: Session = Depends(get_db)):
     try:
@@ -165,7 +166,7 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
                 now_utc = datetime.now(timezone.utc)
 
                 # אם עברו יותר מ-3 דקות (או כל זמן בדיקה שתבחרי)
-                if now_utc - proposed_time > timedelta(minutes = 3):
+                if now_utc - proposed_time > timedelta(minutes=3):
                     force_expire_volunteer(ride)
                     return {"status": "expired", "message": "פג תוקף ההצעה"}
 
@@ -198,13 +199,16 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
 
             # אם הנוסע ב-proposed אבל נסיעת המתנדב המשויכת אליו כבר לא ב-proposed (כלומר בוטלה או פג תוקפה)
             if ride.status == "proposed":
-                volunteer_ride = db.query(models.VolunteerRide).filter_by(matched_request_id=ride.id).first()
-                if not volunteer_ride or volunteer_ride.status in ["cancelled", "expired", "pending"]:
+                volunteer_ride = db.query(models.VolunteerRide).filter_by(matched_request_id=ride.id).order_by(
+                    models.VolunteerRide.id.desc()).first()
+
+                if volunteer_ride and volunteer_ride.status in ["cancelled", "expired"]:
                     ride.status = "pending"
                     db.commit()
 
             if ride.status in ["proposed", "volunteer_approved", "rider_approved", "confirmed"]:
-                volunteer_ride = db.query(models.VolunteerRide).filter_by(matched_request_id=ride.id).first()
+                volunteer_ride = db.query(models.VolunteerRide).filter_by(matched_request_id=ride.id).order_by(
+                    models.VolunteerRide.id.desc()).first()
 
                 if not volunteer_ride or not volunteer_ride.volunteer_id:
                     raise HTTPException(status_code=404, detail="פרטי ההתנדבות חסרים")
