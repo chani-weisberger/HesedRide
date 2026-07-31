@@ -1,7 +1,7 @@
 import ScreenWrapper from '@/components/ScreenWrapper';
 import { colors } from '@/styles/colors';
 import { typography } from '@/styles/typography';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState, useRef } from 'react';
 import {
     ActivityIndicator,
@@ -11,7 +11,8 @@ import {
     View,
     Platform,
     TouchableOpacity,
-    Modal
+    Modal,
+    BackHandler
 } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
@@ -27,9 +28,15 @@ export default function VolunteerWaitingForRiderPage() {
     rideData?: string;
   }>();
 
+  const navigation = useNavigation();
+
   const [showTimeoutMessage, setShowTimeoutMessage] = useState(false);
   const [isCreating, setIsCreating] = useState(!volunteer_ride_id && !!rideData);
+
   const isCancelledRef = useRef(false);
+  const currentRideIdRef = useRef<string | null>(volunteer_ride_id || null);
+
+  const isLeavingLegally = useRef(false);
 
   const getAuthToken = async () => {
     if (Platform.OS === 'web') return localStorage.getItem('userToken');
@@ -39,6 +46,69 @@ export default function VolunteerWaitingForRiderPage() {
       return token;
     } catch (error) { return AsyncStorage ? await AsyncStorage.getItem('userToken') : null; }
   };
+
+  // ========================================================
+  // פונקציית העזיבה השקטה - עוצרת הכל ומבטלת מאחורי הקלעים
+  // ========================================================
+  const handleAttemptLeave = () => {
+    isCancelledRef.current = true; // נועלים את כל האסינכרוניות!
+
+    const rideId = currentRideIdRef.current;
+    if (rideId) {
+      // ביטול שקט
+      getAuthToken().then(token => {
+        fetch(`http://127.0.0.1:8000/api/rides/volunteer/cancel/${rideId}`, {
+          method: 'PATCH',
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).catch(() => {});
+      });
+    }
+
+    // נותנים לדפדפן / למכשיר אישור לחזור אחורה
+    isLeavingLegally.current = true;
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/volunteer/volunteer-type');
+    }
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (isLeavingLegally.current) return false;
+      handleAttemptLeave();
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+    const unsubscribeRouter = navigation.addListener('beforeRemove', (e) => {
+      if (!isLeavingLegally.current) {
+        e.preventDefault(); // חוסמים את הדפדפן מלברוח לבד!
+        handleAttemptLeave();
+      }
+    });
+
+    const handleWebBack = () => {
+      if (!isLeavingLegally.current) {
+        window.history.pushState(null, '', window.location.href);
+        handleAttemptLeave();
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handleWebBack);
+    }
+
+    return () => {
+      backHandler.remove();
+      unsubscribeRouter();
+      if (Platform.OS === 'web') {
+        window.removeEventListener('popstate', handleWebBack);
+      }
+    };
+  }, [navigation]);
+  // ========================================================
 
   const createRideAndStartPolling = async (rideJson: string) => {
     try {
@@ -66,16 +136,36 @@ export default function VolunteerWaitingForRiderPage() {
       const data = await response.json();
       setIsCreating(false);
 
+      // תיקון ה-Race Condition הקריטי:
+      // אם המשתמש חזר אחורה *בזמן* שהבקשה הייתה בדרך, עכשיו קיבלנו ID
+      // אבל המשתמש כבר לא פה! אז מיד נבטל את הנסיעה בשרת ונעצור!
+      if (isCancelledRef.current) {
+        if (data.volunteer_ride_id) {
+          getAuthToken().then(token => {
+            fetch(`http://127.0.0.1:8000/api/rides/volunteer/cancel/${data.volunteer_ride_id}`, {
+              method: 'PATCH',
+              headers: { 'Authorization': `Bearer ${token}` }
+            }).catch(() => {});
+          });
+        }
+        return; // עוצרים כאן כדי שההתאמה לא תקפוץ פתאום!
+      }
+
+      if (data.volunteer_ride_id) {
+        currentRideIdRef.current = String(data.volunteer_ride_id);
+      }
+
       if (data.match_found) {
+          isLeavingLegally.current = true;
           router.replace({
               pathname: '/volunteer/match-found',
               params: { ...data.match_details, volunteer_ride_id: data.volunteer_ride_id }
           });
       } else {
-          // מפעילים את הפוללינג המבוקר אם לא נמצאה התאמה על השנייה הראשונה
           startPollingFlow(data.volunteer_ride_id);
       }
     } catch (e) {
+      if (isCancelledRef.current) return;
       Alert.alert('שגיאה', 'בעיית תקשורת');
       router.back();
     }
@@ -84,7 +174,6 @@ export default function VolunteerWaitingForRiderPage() {
   const startPollingFlow = (rideId: string) => {
     let isMatchFound = false;
 
-    // הפונקציה שהופכת אותו ל-cancelled אם נגמר הזמן
     const autoCancelRideInBackend = async () => {
       try {
         const token = await getAuthToken();
@@ -102,6 +191,9 @@ export default function VolunteerWaitingForRiderPage() {
         const response = await fetch(`http://127.0.0.1:8000/api/rides/${rideId}/status?ride_type=volunteer`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
+
+        if (isCancelledRef.current) return; // הגנה נוספת
+
         if (response.ok) {
           const data = await response.json();
 
@@ -114,6 +206,8 @@ export default function VolunteerWaitingForRiderPage() {
           if (data.status === 'proposed') {
              isMatchFound = true;
              clearInterval(intervalId);
+
+             isLeavingLegally.current = true;
              router.replace({
                pathname: '/volunteer/match-found',
                params: {
@@ -131,13 +225,12 @@ export default function VolunteerWaitingForRiderPage() {
 
     const intervalId = setInterval(checkRideStatus, 1000);
 
-    // חלון זמן ריאלי של 15 שניות לחפש התאמה. אם אין, מבטלים ומקפיצים מודאל.
     const timeoutId = setTimeout(() => {
         if (!isMatchFound) {
             isCancelledRef.current = true;
             clearInterval(intervalId);
-            autoCancelRideInBackend(); // הופך ל-cancelled בשרת
-            setShowTimeoutMessage(true); // מקפיץ את המודאל לפי השאיפה שלך
+            autoCancelRideInBackend();
+            setShowTimeoutMessage(true);
         }
     }, 15000);
 
@@ -147,6 +240,8 @@ export default function VolunteerWaitingForRiderPage() {
   useEffect(() => {
     if (match_found === 'true' && match_details) {
       const timer = setTimeout(() => {
+        if (isCancelledRef.current) return; // עצירה אחרונה
+        isLeavingLegally.current = true;
         router.replace({ pathname: '/volunteer/match-found', params: { ...JSON.parse(match_details), volunteer_ride_id } });
       }, 1000);
       return () => clearTimeout(timer);
@@ -184,7 +279,10 @@ export default function VolunteerWaitingForRiderPage() {
             <Text style={styles.modalSubtitle}>כל הכבוד על הרצון והלב החם להתנדב! כרגע אין חולה במאגר שזקוק להסעה במסלול זה.</Text>
             <TouchableOpacity
               style={styles.homeBtn}
-              onPress={() => router.replace('/volunteer/volunteer-type')}
+              onPress={() => {
+                isLeavingLegally.current = true;
+                router.replace('/volunteer/volunteer-type');
+              }}
             >
               <Text style={styles.homeBtnText}>חזרה למסך הבית</Text>
             </TouchableOpacity>
