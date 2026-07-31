@@ -270,8 +270,8 @@ export default function MatchFoundPage() {
         {isConfirmed && <Text style={styles.successBadge}>✓ נסיעה פעילה</Text>}
         <Text style={styles.title}>
           {isConfirmed
-            ? `אתה בדרך אל ${params.passenger_name}! 🚗`
-            : 'נמצאה לך התאמה! 🎉'}
+            ? `אתה בדרך אל ${params.passenger_name}! `
+            : 'נמצאה לך התאמה!'}
         </Text>
         <Text style={styles.subtitle}>
           {isConfirmed
@@ -298,7 +298,7 @@ export default function MatchFoundPage() {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={common.buttonTextPrimary}>
-                  אישור נסיעה ויציאה לדרך 🤝
+                  אישור נסיעה ויציאה לדרך
                 </Text>
               )}
             </TouchableOpacity>

@@ -54,7 +54,7 @@ export default function VolunteerGlobalRideSummaryPage() {
             onPress={handleConfirm}
             activeOpacity={0.8}
           >
-            <Text style={common.buttonTextPrimary}>אישור ופרסום נסיעה ✨</Text>
+            <Text style={common.buttonTextPrimary}>אישור ופרסום נסיעה </Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
