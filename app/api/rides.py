@@ -30,7 +30,7 @@ def create_volunteer_ride(volunteer_data: schemas.VolunteerRideCreate, db: Sessi
     try:
         user = db.query(models.User).filter(models.User.id == volunteer_data.volunteer_id).first()
         if not user:
-            raise HTTPException(status_code=400, detail=f"משתמש לא נמצא")
+            raise HTTPException(status_code=400, detail="משתמש לא נמצא")
 
         new_volunteer_ride = models.VolunteerRide(**volunteer_data.model_dump())
         db.add(new_volunteer_ride)
@@ -39,14 +39,7 @@ def create_volunteer_ride(volunteer_data: schemas.VolunteerRideCreate, db: Sessi
 
         matched_passenger = find_best_match(new_volunteer_ride, db)
 
-        # מצב 1: נמצאה התאמה על ההתחלה
         if matched_passenger:
-            matched_passenger.status = "proposed"
-            new_volunteer_ride.status = "proposed"
-            new_volunteer_ride.proposed_at = datetime.now(timezone.utc)
-            new_volunteer_ride.matched_request_id = matched_passenger.id
-
-            db.commit()
             db.refresh(new_volunteer_ride)
             db.refresh(matched_passenger)
 
@@ -66,7 +59,7 @@ def create_volunteer_ride(volunteer_data: schemas.VolunteerRideCreate, db: Sessi
                 }
             }
 
-        # מצב 2: לא נמצאה התאמה מיד (משאירים ב-pending כדי שהאפליקציה תוכל לבצע חיפוש של 15 שניות)
+        # לא נמצאה התאמה
         new_volunteer_ride.status = "pending"
         db.commit()
 
@@ -114,27 +107,48 @@ def resume_volunteer_ride(volunteer_ride_id: int, db: Session = Depends(get_db))
         if not volunteer_ride:
             raise HTTPException(status_code=404, detail="נסיעת המתנדב לא נמצאה")
 
-        # שחרור נוסעי רפאים שביטלו או נתקעו מול המתנדב
-        stuck_requests = db.query(models.RideRequest).filter_by(status="proposed").all()
-        for req in stuck_requests:
-            if volunteer_ride.matched_request_id == req.id:
-                req.status = "pending"
+        # שחרור נוסע קודם שעדיין תקוע ב-proposed (אם קיים)
+        if volunteer_ride.matched_request_id is not None:
+            old_request = db.query(models.RideRequest).filter_by(id=volunteer_ride.matched_request_id).first()
+            if old_request and old_request.status == "proposed":
+                old_request.status = "pending"
 
         volunteer_ride.status = "pending"
         volunteer_ride.matched_request_id = None
         volunteer_ride.proposed_at = None
         db.commit()
 
-        # מיד מנסים לחפש שוב
+        # חיפוש מיידי של נוסע חדש
         matched_passenger = find_best_match(volunteer_ride, db)
-        if matched_passenger:
-            matched_passenger.status = "proposed"
-            volunteer_ride.status = "proposed"
-            volunteer_ride.proposed_at = datetime.now(timezone.utc)
-            volunteer_ride.matched_request_id = matched_passenger.id
-            db.commit()
 
-        return {"status": "success", "message": "הוחזר למצב חיפוש"}
+        if matched_passenger:
+            db.refresh(volunteer_ride)
+            db.refresh(matched_passenger)
+
+            navigation_link = generate_google_maps_link(volunteer_ride, matched_passenger)
+
+            return {
+                "status": "success",
+                "message": "נמצאה הצעה להתאמה",
+                "volunteer_ride_id": volunteer_ride.id,
+                "match_found": True,
+                "match_details": {
+                    "ride_request_id": matched_passenger.id,
+                    "passenger_name": matched_passenger.patient_name,
+                    "origin": matched_passenger.origin,
+                    "destination": matched_passenger.destination,
+                    "navigation_url": navigation_link
+                }
+            }
+
+        return {
+            "status": "success",
+            "message": "הוחזר למצב חיפוש",
+            "volunteer_ride_id": volunteer_ride.id,
+            "match_found": False,
+            "match_details": None
+        }
+
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
@@ -205,11 +219,7 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
             if ride.status == "pending":
                 matched_passenger = find_best_match(ride, db)
                 if matched_passenger:
-                    matched_passenger.status = "proposed"
-                    ride.status = "proposed"
-                    ride.proposed_at = datetime.now(timezone.utc)
-                    ride.matched_request_id = matched_passenger.id
-                    db.commit()
+                    db.refresh(ride)
 
             if ride.status in ["proposed", "confirmed"]:
                 passenger = db.query(models.RideRequest).filter_by(id=ride.matched_request_id).first()

@@ -1,6 +1,8 @@
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from app.db.models import VolunteerRide, RideRequest
 from app.services.maps_service import get_travel_time_minutes
+
 
 def calculate_total_deviation(v_ride: VolunteerRide, r_request: RideRequest) -> int | None:
     # 1. Original travel time
@@ -19,8 +21,9 @@ def calculate_total_deviation(v_ride: VolunteerRide, r_request: RideRequest) -> 
     combined_time = time_to_passenger + passenger_ride_time + time_to_final_destination
     return combined_time - original_time
 
+
 def find_best_match(v_ride: VolunteerRide, db: Session):
-    # Stage 1: Retrieving only pending request IDs without global locking
+    # Stage 1: Retrieving only pending request IDs
     pending_ids = db.query(RideRequest.id). \
         filter(RideRequest.status == "pending"). \
         order_by(RideRequest.created_at.asc()). \
@@ -28,16 +31,14 @@ def find_best_match(v_ride: VolunteerRide, db: Session):
 
     print(f"DEBUG FIND_MATCH - Found {len(pending_ids)} pending request IDs to check against volunteer {v_ride.id}")
 
-    # Stage 2: Loop through request IDs and lock them one by one safely
+    # Stage 2: Loop through request IDs and lock them one by one
     for (req_id,) in pending_ids:
-        # נעילה נקודתית ושקטה אך ורק לבקשה הנוכחית
         request = db.query(RideRequest). \
             filter(RideRequest.id == req_id, RideRequest.status == "pending"). \
             with_for_update(skip_locked=True). \
             first()
 
         if not request:
-            # אם מישהו אחר תפס את הבקשה הזו ממש עכשיו, מדלגים לבקשה הבאה
             continue
 
         if request.passenger_count > v_ride.available_seats:
@@ -48,9 +49,13 @@ def find_best_match(v_ride: VolunteerRide, db: Session):
         print(f"DEBUG FIND_MATCH - Request {request.id} deviation calculated: {deviation_minutes} mins (Grace allowed: {v_ride.grace_minutes})")
 
         if deviation_minutes is not None and deviation_minutes <= v_ride.grace_minutes:
+            # מעדכנים את כל השדות במקום אחד
             request.status = "proposed"
             v_ride.status = "proposed"
+            v_ride.matched_request_id = request.id
+            v_ride.proposed_at = datetime.now(timezone.utc)
             db.commit()
+
             print(f"DEBUG FIND_MATCH - MATCH FOUND! Request {request.id} matched with Volunteer {v_ride.id}")
             return request
 
