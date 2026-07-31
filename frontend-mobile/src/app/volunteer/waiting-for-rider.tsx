@@ -1,9 +1,8 @@
-// volunteer/waiting-for-rider.tsx
 import ScreenWrapper from '@/components/ScreenWrapper';
 import { colors } from '@/styles/colors';
 import { typography } from '@/styles/typography';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -12,7 +11,7 @@ import {
     View,
     Platform,
     TouchableOpacity,
-    Modal // <--- ייבוא הקומפוננטה של המודאל
+    Modal
 } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
@@ -30,6 +29,7 @@ export default function VolunteerWaitingForRiderPage() {
 
   const [showTimeoutMessage, setShowTimeoutMessage] = useState(false);
   const [isCreating, setIsCreating] = useState(!volunteer_ride_id && !!rideData);
+  const isCancelledRef = useRef(false);
 
   const getAuthToken = async () => {
     if (Platform.OS === 'web') return localStorage.getItem('userToken');
@@ -51,12 +51,6 @@ export default function VolunteerWaitingForRiderPage() {
           userId = await SecureStore.getItemAsync('userId');
         }
 
-      if (!userId) {
-        Alert.alert('שגיאה', 'לא נמצא מזהה משתמש. אנא התחברי מחדש.');
-        router.replace('/volunteer/login');
-        return;
-      }
-
       const response = await fetch('http://127.0.0.1:8000/api/rides/volunteer/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -69,14 +63,6 @@ export default function VolunteerWaitingForRiderPage() {
         })
       });
 
-      if (!response.ok) {
-          const errorData = await response.json();
-          console.log("Server Error Details:", errorData);
-          Alert.alert('שגיאה', errorData.detail || 'לא הצלחנו ליצור את הנסיעה');
-          router.back();
-          return;
-      }
-
       const data = await response.json();
       setIsCreating(false);
 
@@ -86,14 +72,10 @@ export default function VolunteerWaitingForRiderPage() {
               params: { ...data.match_details, volunteer_ride_id: data.volunteer_ride_id }
           });
       } else {
-          setShowTimeoutMessage(true);
-
-          setTimeout(() => {
-              router.replace('/volunteer/volunteer-type');
-          }, 10000);
+          // מפעילים את הפוללינג המבוקר אם לא נמצאה התאמה על השנייה הראשונה
+          startPollingFlow(data.volunteer_ride_id);
       }
     } catch (e) {
-      console.log("Communication Error:", e);
       Alert.alert('שגיאה', 'בעיית תקשורת');
       router.back();
     }
@@ -102,6 +84,7 @@ export default function VolunteerWaitingForRiderPage() {
   const startPollingFlow = (rideId: string) => {
     let isMatchFound = false;
 
+    // הפונקציה שהופכת אותו ל-cancelled אם נגמר הזמן
     const autoCancelRideInBackend = async () => {
       try {
         const token = await getAuthToken();
@@ -113,7 +96,7 @@ export default function VolunteerWaitingForRiderPage() {
     };
 
     const checkRideStatus = async () => {
-      if (isMatchFound) return;
+      if (isMatchFound || isCancelledRef.current) return;
       try {
         const token = await getAuthToken();
         const response = await fetch(`http://127.0.0.1:8000/api/rides/${rideId}/status?ride_type=volunteer`, {
@@ -121,8 +104,16 @@ export default function VolunteerWaitingForRiderPage() {
         });
         if (response.ok) {
           const data = await response.json();
+
+          if (data.status === 'cancelled') {
+            isCancelledRef.current = true;
+            clearInterval(intervalId);
+            return;
+          }
+
           if (data.status === 'proposed') {
              isMatchFound = true;
+             clearInterval(intervalId);
              router.replace({
                pathname: '/volunteer/match-found',
                params: {
@@ -139,13 +130,16 @@ export default function VolunteerWaitingForRiderPage() {
     };
 
     const intervalId = setInterval(checkRideStatus, 1000);
+
+    // חלון זמן ריאלי של 15 שניות לחפש התאמה. אם אין, מבטלים ומקפיצים מודאל.
     const timeoutId = setTimeout(() => {
         if (!isMatchFound) {
+            isCancelledRef.current = true;
             clearInterval(intervalId);
-            autoCancelRideInBackend();
-            setShowTimeoutMessage(true); // זה עכשיו יפעיל את המודאל!
+            autoCancelRideInBackend(); // הופך ל-cancelled בשרת
+            setShowTimeoutMessage(true); // מקפיץ את המודאל לפי השאיפה שלך
         }
-    }, 3000);
+    }, 15000);
 
     return () => { clearInterval(intervalId); clearTimeout(timeoutId); };
   };
@@ -170,7 +164,6 @@ export default function VolunteerWaitingForRiderPage() {
 
   return (
     <ScreenWrapper>
-      {/* מסך הטעינה שתמיד נשאר ברקע */}
       <View style={styles.container}>
         <Text style={styles.title}>{isCreating ? 'מפרסם את הנסיעה...' : 'מחפשים לך נוסע...'}</Text>
         <Text style={styles.subtitle}>אנא המתן, המערכת מנסה להתאים חולה למסלול שלך ברגעים אלו</Text>
@@ -179,7 +172,6 @@ export default function VolunteerWaitingForRiderPage() {
         </View>
       </View>
 
-      {/* המודאל שקופץ כשאין התאמה */}
       <Modal
         visible={showTimeoutMessage}
         transparent={true}
@@ -199,7 +191,6 @@ export default function VolunteerWaitingForRiderPage() {
           </View>
         </View>
       </Modal>
-
     </ScreenWrapper>
   );
 }
@@ -210,28 +201,8 @@ const styles = StyleSheet.create({
   subtitle: { ...typography.bodySecondary, textAlign: 'center', paddingHorizontal: 20, lineHeight: 24 },
   loaderContainer: { marginVertical: 40, justifyContent: 'center', alignItems: 'center' },
   loader: { transform: [{ scale: 1.5 }] },
-
-  // עיצוב למודאל החדש
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', // רקע חצי שקוף וכהה
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalContent: {
-    backgroundColor: colors.white,
-    padding: 30,
-    borderRadius: 16,
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: 400,
-    elevation: 5, // צל עבור אנדרואיד
-    shadowColor: '#000', // צל עבור אייפון
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  modalContent: { backgroundColor: colors.white, padding: 30, borderRadius: 16, alignItems: 'center', width: '100%', maxWidth: 400 },
   emoji: { fontSize: 50, marginBottom: 15 },
   modalTitle: { ...typography.h2, color: colors.primaryNavy, textAlign: 'center', marginBottom: 10 },
   modalSubtitle: { ...typography.bodySecondary, textAlign: 'center', lineHeight: 22, marginBottom: 24 },

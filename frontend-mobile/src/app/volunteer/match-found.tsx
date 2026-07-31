@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Alert, Linking, ActivityIndicator, Platform, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import ScreenWrapper from '@/components/ScreenWrapper';
@@ -16,12 +16,16 @@ export default function MatchFoundPage() {
   const [passengerPhone, setPassengerPhone] = useState<string>('');
   const [isExpiredModalVisible, setIsExpiredModalVisible] = useState(false);
 
-  // פונקציית ביטול ושחרור משותפת לשרת
+  // סטייטים למודאל המעוצב של ביטול הבקשה מצד הנוסע + טיימר למתנדב
+  const [isCancelledByRiderModalVisible, setIsCancelledByRiderModalVisible] = useState(false);
+  const [riderCancelMessage, setRiderCancelMessage] = useState('');
+  const [volunteerCountdown, setVolunteerCountdown] = useState(30);
+  const volunteerTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const cancelRideOnServer = async () => {
     if (!params.volunteer_ride_id || isConfirmed) return;
     try {
       if (Platform.OS === 'web') {
-        // שימוש ב-sendBeacon כדי להבטיח שהבקשה תצא גם אם הדפדפן נסגר או הלשונית ננעלת פתאום
         navigator.sendBeacon(`http://127.0.0.1:8000/api/rides/volunteer/cancel/${params.volunteer_ride_id}`);
       } else {
         await fetch(`http://127.0.0.1:8000/api/rides/volunteer/cancel/${params.volunteer_ride_id}`, {
@@ -33,10 +37,9 @@ export default function MatchFoundPage() {
     }
   };
 
-  // 1. טיפול בסגירת לשונית או דפדפן (Web)
   useEffect(() => {
     if (Platform.OS === 'web') {
-      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const handleBeforeUnload = () => {
         cancelRideOnServer();
       };
       window.addEventListener('beforeunload', handleBeforeUnload);
@@ -46,7 +49,6 @@ export default function MatchFoundPage() {
     }
   }, [isConfirmed]);
 
-  // 2. בדיקת סטטוס מחזורית (Polling) שבודקת אם עברו 3 דקות ופג תוקף ההצעה בשרת
   useEffect(() => {
     if (isConfirmed) return;
 
@@ -58,7 +60,6 @@ export default function MatchFoundPage() {
         if (data.status === 'expired') {
           clearInterval(interval);
           setIsExpiredModalVisible(true);
-          // 10 שניות ואז חזרה אוטומטית למסך הבית
           setTimeout(() => {
             router.replace('/volunteer/volunteer-type');
           }, 10000);
@@ -70,6 +71,28 @@ export default function MatchFoundPage() {
 
     return () => clearInterval(interval);
   }, [isConfirmed, params.volunteer_ride_id]);
+
+  useEffect(() => {
+    if (isCancelledByRiderModalVisible) {
+      setVolunteerCountdown(30);
+      volunteerTimerRef.current = setInterval(() => {
+        setVolunteerCountdown((prev) => {
+          if (prev <= 1) {
+            if (volunteerTimerRef.current) clearInterval(volunteerTimerRef.current);
+            handleVolunteerCancelAndHome();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (volunteerTimerRef.current) clearInterval(volunteerTimerRef.current);
+    }
+
+    return () => {
+      if (volunteerTimerRef.current) clearInterval(volunteerTimerRef.current);
+    };
+  }, [isCancelledByRiderModalVisible]);
 
   const handleVolunteerConfirm = async () => {
     setIsConfirming(true);
@@ -84,17 +107,43 @@ export default function MatchFoundPage() {
       });
 
       const data = await response.json();
+
       if (response.ok && data.status === 'success') {
         setNavigationUrl(data.navigation_url || null);
         setPassengerPhone(data.patient_phone || '058-4657588');
         setIsConfirmed(true);
       } else {
-         Alert.alert('שגיאה', 'לא ניתן לאשר את הנסיעה');
+         setRiderCancelMessage(data.detail || 'הנוסע ביטל את הבקשה ברגע האחרון.');
+         setIsCancelledByRiderModalVisible(true);
       }
     } catch (error) {
-      Alert.alert('שגיאה', 'שגיאת תקשורת');
+      Alert.alert('שגיאה', 'שגיאת תקשורת מול השרת');
     } finally {
       setIsConfirming(false);
+    }
+  };
+
+  const handleVolunteerCancelAndHome = async () => {
+    if (volunteerTimerRef.current) clearInterval(volunteerTimerRef.current);
+    await cancelRideOnServer();
+    router.replace('/volunteer/volunteer-type');
+  };
+
+  // אופציה מעודכנת: חזרה לחיפוש נסיעה (החזרת הסטטוס ל-pending דרך נתיב ה-resume)
+  // אופציה 2 למתנדב: חזרה לחיפוש נסיעה (החזרת הסטטוס ל-pending והחזרה למסך ההמתנה לנוסע)
+  const handleVolunteerResumeSearch = async () => {
+    if (volunteerTimerRef.current) clearInterval(volunteerTimerRef.current);
+    try {
+      await fetch(`http://127.0.0.1:8000/api/rides/volunteer/resume/${params.volunteer_ride_id}`, {
+        method: 'PATCH',
+      });
+      // מחזירים אותו חזרה למסך ההמתנה לנוסע עם מזהה נסיעת המתנדב
+      router.replace({
+        pathname: '/volunteer/waiting-for-rider',
+        params: { volunteer_ride_id: params.volunteer_ride_id }
+      });
+    } catch (e) {
+      router.replace('/volunteer/volunteer-type');
     }
   };
 
@@ -159,7 +208,6 @@ export default function MatchFoundPage() {
         </View>
       </View>
 
-      {/* מודאל פקיעת תוקף שמופיע מעל המסך */}
       {isExpiredModalVisible && (
         <View style={styles.expiredOverlay}>
           <View style={styles.expiredModalCard}>
@@ -173,6 +221,34 @@ export default function MatchFoundPage() {
             >
               <Text style={common.buttonTextPrimary}>חזרה מיידית למסך הבית</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {isCancelledByRiderModalVisible && (
+        <View style={styles.expiredOverlay}>
+          <View style={styles.expiredModalCard}>
+            <Text style={styles.expiredTitle}>⚠️ הנסיעה בוטלה</Text>
+            <Text style={styles.expiredText}>{riderCancelMessage}</Text>
+            <Text style={styles.timerText}>
+              החזרה האוטומטית למסך הבית תתבצע בעוד {volunteerCountdown} שניות...
+            </Text>
+
+            <View style={{ width: '100%', gap: 10, marginTop: 16 }}>
+              <TouchableOpacity
+                style={[common.buttonPrimary, { backgroundColor: '#dc2626', width: '100%' }]}
+                onPress={handleVolunteerCancelAndHome}
+              >
+                <Text style={common.buttonTextPrimary}>חזרה למסך הבית</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[common.buttonPrimary, { backgroundColor: colors.primaryBlue, width: '100%' }]}
+                onPress={handleVolunteerResumeSearch}
+              >
+                <Text style={common.buttonTextPrimary}>חזרה לחיפוש נסיעה חדשה</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       )}
@@ -227,5 +303,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 8,
+  },
+  timerText: {
+    fontSize: 13,
+    color: '#dc2626',
+    fontWeight: '600',
+    marginBottom: 10,
+    textAlign: 'center',
   },
 });
