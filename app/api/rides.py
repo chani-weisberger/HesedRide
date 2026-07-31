@@ -216,20 +216,42 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
             if not ride:
                 raise HTTPException(status_code=404, detail="נסיעת המתנדב לא נמצאה")
 
+            # פג תוקף הצעה אחרי 3 דקות בלי אישור
+            if ride.status == "proposed" and ride.proposed_at is not None:
+                proposed_at = ride.proposed_at
+                if proposed_at.tzinfo is None:
+                    proposed_at = proposed_at.replace(tzinfo=timezone.utc)
+
+                if datetime.now(timezone.utc) - proposed_at > timedelta(minutes=3):
+                    if ride.matched_request_id is not None:
+                        passenger = db.query(models.RideRequest).filter_by(
+                            id=ride.matched_request_id
+                        ).first()
+                        if passenger and passenger.status == "proposed":
+                            passenger.status = "pending"
+
+                    ride.status = "cancelled"
+                    ride.matched_request_id = None
+                    ride.proposed_at = None
+                    db.commit()
+                    return {"status": "expired"}
+
             if ride.status == "pending":
                 matched_passenger = find_best_match(ride, db)
                 if matched_passenger:
                     db.refresh(ride)
 
             if ride.status in ["proposed", "confirmed"]:
-                passenger = db.query(models.RideRequest).filter_by(id=ride.matched_request_id).first()
+                passenger = db.query(models.RideRequest).filter_by(
+                    id=ride.matched_request_id
+                ).first()
                 if passenger:
                     return {
                         "status": ride.status,
                         "ride_request_id": passenger.id,
                         "passenger_name": passenger.patient_name,
                         "origin": passenger.origin,
-                        "destination": passenger.destination
+                        "destination": passenger.destination,
                     }
 
             return {"status": ride.status}
@@ -240,24 +262,36 @@ def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db))
                 raise HTTPException(status_code=404, detail="בקשת הנוסע לא נמצאה")
 
             if ride.status == "proposed":
-                volunteer_ride = db.query(models.VolunteerRide).filter_by(matched_request_id=ride.id).order_by(
-                    models.VolunteerRide.id.desc()).first()
+                volunteer_ride = (
+                    db.query(models.VolunteerRide)
+                    .filter_by(matched_request_id=ride.id)
+                    .order_by(models.VolunteerRide.id.desc())
+                    .first()
+                )
 
                 if volunteer_ride and volunteer_ride.status in ["cancelled", "expired"]:
                     ride.status = "pending"
                     db.commit()
 
             if ride.status in ["proposed", "volunteer_approved", "rider_approved", "confirmed"]:
-                volunteer_ride = db.query(models.VolunteerRide).filter_by(matched_request_id=ride.id).order_by(
-                    models.VolunteerRide.id.desc()).first()
+                volunteer_ride = (
+                    db.query(models.VolunteerRide)
+                    .filter_by(matched_request_id=ride.id)
+                    .order_by(models.VolunteerRide.id.desc())
+                    .first()
+                )
 
                 if not volunteer_ride or not volunteer_ride.volunteer_id:
                     raise HTTPException(status_code=404, detail="פרטי ההתנדבות חסרים")
 
-                volunteer_user = db.query(models.User).filter_by(id=volunteer_ride.volunteer_id).first()
+                volunteer_user = db.query(models.User).filter_by(
+                    id=volunteer_ride.volunteer_id
+                ).first()
 
                 if not volunteer_user:
-                    raise HTTPException(status_code=404, detail="המתנדב לא נמצא במסד הנתונים")
+                    raise HTTPException(
+                        status_code=404, detail="המתנדב לא נמצא במסד הנתונים"
+                    )
 
                 return {
                     "status": ride.status,

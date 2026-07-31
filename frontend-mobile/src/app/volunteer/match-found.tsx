@@ -35,7 +35,8 @@ export default function MatchFoundPage() {
   const [passengerPhone, setPassengerPhone] = useState<string>('');
   const [isExpiredModalVisible, setIsExpiredModalVisible] = useState(false);
 
-  const [isCancelledByRiderModalVisible, setIsCancelledByRiderModalVisible] = useState(false);
+  const [isCancelledByRiderModalVisible, setIsCancelledByRiderModalVisible] =
+    useState(false);
   const [riderCancelMessage, setRiderCancelMessage] = useState('');
   const [volunteerCountdown, setVolunteerCountdown] = useState(30);
   const volunteerTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -43,8 +44,7 @@ export default function MatchFoundPage() {
   const isLeavingLegally = useRef(false);
 
   const cancelRideOnServer = async () => {
-    // לא מבטלים אם אנחנו עוזבים בצורה מכוונת (resume / ניווט חוקי)
-    if (!params.volunteer_ride_id || isConfirmed || isLeavingLegally.current) return;
+    if (!params.volunteer_ride_id || isConfirmed) return;
 
     try {
       if (Platform.OS === 'web') {
@@ -54,7 +54,7 @@ export default function MatchFoundPage() {
       } else {
         await fetch(
           `http://127.0.0.1:8000/api/rides/volunteer/cancel/${params.volunteer_ride_id}`,
-          { method: 'PATCH' }
+          { method: 'POST' }
         );
       }
     } catch (error) {
@@ -64,8 +64,8 @@ export default function MatchFoundPage() {
 
   const handleAttemptLeave = () => {
     if (isLeavingLegally.current) return;
-    isLeavingLegally.current = true;
     cancelRideOnServer();
+    isLeavingLegally.current = true;
     router.replace('/volunteer/volunteer-type');
   };
 
@@ -75,7 +75,10 @@ export default function MatchFoundPage() {
       handleAttemptLeave();
       return true;
     };
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      onBackPress
+    );
 
     const unsubscribeRouter = navigation.addListener('beforeRemove', (e) => {
       if (!isLeavingLegally.current) {
@@ -108,7 +111,9 @@ export default function MatchFoundPage() {
   useEffect(() => {
     if (Platform.OS === 'web') {
       const handleBeforeUnload = () => {
-        cancelRideOnServer();
+        if (!isLeavingLegally.current && !isConfirmed) {
+          cancelRideOnServer();
+        }
       };
       window.addEventListener('beforeunload', handleBeforeUnload);
       return () => {
@@ -149,7 +154,8 @@ export default function MatchFoundPage() {
       volunteerTimerRef.current = setInterval(() => {
         setVolunteerCountdown((prev) => {
           if (prev <= 1) {
-            if (volunteerTimerRef.current) clearInterval(volunteerTimerRef.current);
+            if (volunteerTimerRef.current)
+              clearInterval(volunteerTimerRef.current);
             handleVolunteerCancelAndHome();
             return 0;
           }
@@ -184,10 +190,12 @@ export default function MatchFoundPage() {
 
       if (response.ok && data.status === 'success') {
         setNavigationUrl(data.navigation_url || null);
-        setPassengerPhone(data.patient_phone || '058-4657588');
+        setPassengerPhone(data.patient_phone || '');
         setIsConfirmed(true);
       } else {
-        setRiderCancelMessage(data.detail || 'הנוסע ביטל את הבקשה ברגע האחרון.');
+        setRiderCancelMessage(
+          data.detail || 'הנוסע ביטל את הבקשה ברגע האחרון.'
+        );
         setIsCancelledByRiderModalVisible(true);
       }
     } catch (error) {
@@ -199,54 +207,55 @@ export default function MatchFoundPage() {
 
   const handleVolunteerCancelAndHome = async () => {
     if (volunteerTimerRef.current) clearInterval(volunteerTimerRef.current);
-    isLeavingLegally.current = true;
     await cancelRideOnServer();
+    isLeavingLegally.current = true;
     router.replace('/volunteer/volunteer-type');
   };
 
   const handleVolunteerResumeSearch = async () => {
-  if (volunteerTimerRef.current) clearInterval(volunteerTimerRef.current);
+    if (volunteerTimerRef.current) clearInterval(volunteerTimerRef.current);
 
-  // מונע ביטול בזמן המעבר
-  isLeavingLegally.current = true;
-  setIsResuming(true);
-
-  try {
-    const response = await fetch(
-      `http://127.0.0.1:8000/api/rides/volunteer/resume/${params.volunteer_ride_id}`,
-      { method: 'PATCH' }
-    );
-    const data = await response.json();
-
-    if (data.match_found && data.match_details) {
-      // יש התאמה — מחכים שנייה וחצי לתחושת חיפוש, ואז עוברים
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      router.replace({
-        pathname: '/volunteer/match-found',
-        params: {
-          volunteer_ride_id: String(data.volunteer_ride_id || params.volunteer_ride_id),
-          ride_request_id: String(data.match_details.ride_request_id),
-          passenger_name: data.match_details.passenger_name || 'נוסע חסד',
-          origin: data.match_details.origin || '',
-          destination: data.match_details.destination || '',
-        },
-      });
-    } else {
-      // אין התאמה — עוברים למסך החיפוש הרגיל
-      router.replace({
-        pathname: '/volunteer/waiting-for-rider',
-        params: { volunteer_ride_id: params.volunteer_ride_id },
-      });
-    }
-  } catch (e) {
-    setIsResuming(false);
-    router.replace('/volunteer/volunteer-type');
-  }
-};
-  const handleCancelAndGoHome = async () => {
     isLeavingLegally.current = true;
+    setIsResuming(true);
+
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/rides/volunteer/resume/${params.volunteer_ride_id}`,
+        { method: 'PATCH' }
+      );
+      const data = await response.json();
+
+      if (data.match_found && data.match_details) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        router.replace({
+          pathname: '/volunteer/match-found',
+          params: {
+            volunteer_ride_id: String(
+              data.volunteer_ride_id || params.volunteer_ride_id
+            ),
+            ride_request_id: String(data.match_details.ride_request_id),
+            passenger_name:
+              data.match_details.passenger_name || 'נוסע חסד',
+            origin: data.match_details.origin || '',
+            destination: data.match_details.destination || '',
+          },
+        });
+      } else {
+        router.replace({
+          pathname: '/volunteer/waiting-for-rider',
+          params: { volunteer_ride_id: params.volunteer_ride_id },
+        });
+      }
+    } catch (e) {
+      setIsResuming(false);
+      router.replace('/volunteer/volunteer-type');
+    }
+  };
+
+  const handleCancelAndGoHome = async () => {
     await cancelRideOnServer();
+    isLeavingLegally.current = true;
     router.replace('/volunteer/volunteer-type');
   };
 
@@ -281,8 +290,13 @@ export default function MatchFoundPage() {
 
         <View style={common.card}>
           <Text style={styles.sectionTitle}>פרטי הנסיעה</Text>
-          <InfoRow label="שם החולה" value={params.passenger_name || 'נוסע חסד'} />
-          {isConfirmed && <InfoRow label="טלפון לתיאום" value={passengerPhone} />}
+          <InfoRow
+            label="שם החולה"
+            value={params.passenger_name || 'נוסע חסד'}
+          />
+          {isConfirmed && (
+            <InfoRow label="טלפון לתיאום" value={passengerPhone} />
+          )}
           <InfoRow label="נקודת איסוף" value={params.origin || ''} />
           <InfoRow label="יעד נסיעה" value={params.destination || ''} />
         </View>
@@ -322,11 +336,16 @@ export default function MatchFoundPage() {
                 style={{ width: 26, height: 26, marginLeft: 10 }}
                 resizeMode="contain"
               />
-              <Text style={common.buttonTextPrimary}>פתח ניווט ב-Google Maps</Text>
+              <Text style={common.buttonTextPrimary}>
+                פתח ניווט ב-Google Maps
+              </Text>
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelAndGoHome}>
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={handleCancelAndGoHome}
+          >
             <Text style={{ color: colors.primaryBlue, fontWeight: '500' }}>
               חזרה למסך הבית
             </Text>
@@ -339,8 +358,7 @@ export default function MatchFoundPage() {
           <View style={styles.expiredModalCard}>
             <Text style={styles.expiredTitle}>⏰ פג תוקף ההצעה</Text>
             <Text style={styles.expiredText}>
-              עברו 3 דקות ללא אישור. ההצעה שוחררה למתנדבים אחרים, ותועבר בעוד רגע
-              למסך הבית.
+              עברו 3 דקות ללא אישור. ההצעה שוחררה, ותועבר בעוד רגע למסך הבית.
             </Text>
             <TouchableOpacity
               style={[common.buttonPrimary, { marginTop: 16, width: '100%' }]}
@@ -349,7 +367,9 @@ export default function MatchFoundPage() {
                 router.replace('/volunteer/volunteer-type');
               }}
             >
-              <Text style={common.buttonTextPrimary}>חזרה מיידית למסך הבית</Text>
+              <Text style={common.buttonTextPrimary}>
+                חזרה מיידית למסך הבית
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -361,7 +381,8 @@ export default function MatchFoundPage() {
             <Text style={styles.expiredTitle}>⚠️ הנסיעה בוטלה</Text>
             <Text style={styles.expiredText}>{riderCancelMessage}</Text>
             <Text style={styles.timerText}>
-              החזרה האוטומטית למסך הבית תתבצע בעוד {volunteerCountdown} שניות...
+              החזרה האוטומטית למסך הבית תתבצע בעוד {volunteerCountdown}{' '}
+              שניות...
             </Text>
 
             <View style={{ width: '100%', gap: 10, marginTop: 16 }}>
