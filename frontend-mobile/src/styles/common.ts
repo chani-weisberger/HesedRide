@@ -1,72 +1,105 @@
-// HesedRide — סגנונות משותפים
-// כל מה שחוזר על עצמו בכמה דפים נמצא כאן
-// ככה אם רוצים לשנות כפתור — משנים פה אחת ומשתנה בכל מקום
-
 import { StyleSheet } from 'react-native';
 import { colors } from './colors';
 
 export const common = StyleSheet.create({
-
-  // רקע כללי של כל דף
   screen: {
     flex: 1,
     backgroundColor: colors.background,
   },
 
-  // כרטיסייה לבנה עם צל
   card: {
     backgroundColor: colors.cardBg,
     borderRadius: 20,
-    padding: 24,
-    shadowColor: colors.primaryNavy,
-    shadowOffset: { width: 0, height: 4 },
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(20, 184, 166, 0.12)',
+    shadowColor: '#0B3A5C',
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.08,
     shadowRadius: 16,
-    elevation: 4,        // צל באנדרואיד
+    elevation: 3,
   },
 
-  // כפתור ראשי — כחול כהה
+  // כפתור ראשי — טורקיז, גדול ונוח ללחיצה
   buttonPrimary: {
     backgroundColor: colors.primaryBlue,
-    borderRadius: 14,
+    borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 24,
+    minHeight: 54,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primaryBlue,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 4,
   },
 
-  // כפתור משני — שקוף עם מסגרת
+  buttonPrimaryPressed: {
+    backgroundColor: colors.primaryBlueDark,
+  },
+
   buttonSecondary: {
-    backgroundColor: 'transparent',
-    borderRadius: 14,
+    backgroundColor: colors.white,
+    borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: colors.lightCyan,
+    borderColor: colors.tealAccent,
     paddingVertical: 16,
     paddingHorizontal: 24,
+    minHeight: 54,
     alignItems: 'center',
+    justifyContent: 'center',
   },
 
-  // טקסט של כפתור ראשי
   buttonTextPrimary: {
     color: colors.white,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  buttonTextSecondary: {
+    color: colors.primaryNavy,
     fontSize: 16,
     fontWeight: '600',
   },
 
-  // טקסט של כפתור משני
-  buttonTextSecondary: {
-    color: colors.primaryNavy,
+  input: {
+    height: 52,
+    backgroundColor: colors.white,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1.5,
+    borderColor: colors.inputBorder,
     fontSize: 16,
-    fontWeight: '500',
+    color: colors.primaryNavy,
+    textAlign: 'right',
   },
 
-  // שורת הפרדה
+  inputFocused: {
+    borderColor: colors.inputFocus,
+    backgroundColor: '#F0FDFA',
+  },
+
+  inputError: {
+    borderColor: colors.error,
+    borderWidth: 1.5,
+  },
+
+  errorText: {
+    color: colors.error,
+    fontSize: 12,
+    textAlign: 'right',
+    marginTop: 4,
+    marginBottom: 8,
+  },
+
   divider: {
-    width: 36,
-    height: 2,
+    width: 40,
+    height: 3,
     backgroundColor: colors.tealAccent,
     borderRadius: 2,
     alignSelf: 'center',
-    marginVertical: 24,
+    marginVertical: 20,
   },
-
 });

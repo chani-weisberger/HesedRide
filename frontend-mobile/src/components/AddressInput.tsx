@@ -1,22 +1,31 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View, Platform, TextInput } from 'react-native';
+import { StyleSheet, View, Platform } from 'react-native';
+import { colors } from '@/styles/colors';
 
 interface AddressInputProps {
   placeholder: string;
   onAddressSelect: (address: string, details?: any) => void;
 }
 
-const AddressInput: React.FC<AddressInputProps> = ({ placeholder, onAddressSelect }) => {
-  // רפרנס לשמירת אלמנט האינפוט כשאנחנו רצים בדפדפן
+const AddressInput: React.FC<AddressInputProps> = ({
+  placeholder,
+  onAddressSelect,
+}) => {
   const inputRef = useRef<any>(null);
 
   useEffect(() => {
-    // הפעלה של המנוע הטבעי של גוגל, אך ורק אם אנחנו ב-Web והסקריפט מ-+html.tsx נטען בהצלחה
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && (window as any).google) {
-      const autocomplete = new (window as any).google.maps.places.Autocomplete(inputRef.current, {
-        componentRestrictions: { country: 'il' },
-        fields: ['formatted_address', 'geometry', 'name'],
-      });
+    if (
+      Platform.OS === 'web' &&
+      typeof window !== 'undefined' &&
+      (window as any).google
+    ) {
+      const autocomplete = new (window as any).google.maps.places.Autocomplete(
+        inputRef.current,
+        {
+          componentRestrictions: { country: 'il' },
+          fields: ['formatted_address', 'geometry', 'name'],
+        }
+      );
 
       autocomplete.addListener('place_changed', () => {
         const place = autocomplete.getPlace();
@@ -25,34 +34,46 @@ const AddressInput: React.FC<AddressInputProps> = ({ placeholder, onAddressSelec
     }
   }, []);
 
-  // -- ריצה בדפדפן (Web) --
   if (Platform.OS === 'web') {
     return (
       <View style={styles.container}>
-        {/* @ts-ignore - שימוש בתגית HTML רגילה בסביבת ווב כדי שגוגל יוכל להתלבש עליה */}
+        {/* @ts-ignore */}
         <input
           ref={inputRef}
           placeholder={placeholder}
           style={{
-            height: 50,
-            borderRadius: 8,
+            height: 52,
+            borderRadius: 14,
             padding: '0 16px',
-            backgroundColor: '#f5f5f5',
+            backgroundColor: '#FFFFFF',
             fontSize: 16,
-            borderWidth: 1,
-            borderColor: '#e0e0e0',
+            fontWeight: '400',
+            lineHeight: '52px',
+            borderWidth: 1.5,
+            borderColor: colors.inputBorder,
+            borderStyle: 'solid',
             width: '100%',
             boxSizing: 'border-box',
-            fontFamily: 'inherit',
-            textAlign: 'right'
+            fontFamily:
+              'System, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+            textAlign: 'right',
+            color: colors.primaryNavy,
+            outline: 'none',
+            direction: 'rtl',
+          }}
+          onFocus={(e: any) => {
+            e.target.style.borderColor = colors.primaryBlue;
+            e.target.style.backgroundColor = '#F0FDFA';
+          }}
+          onBlur={(e: any) => {
+            e.target.style.borderColor = colors.inputBorder;
+            e.target.style.backgroundColor = '#FFFFFF';
           }}
         />
       </View>
     );
   }
 
-  // -- ריצה בנייד (Mobile) --
-  // הייבוא נעשה כאן למטה באופן דינמי (require) כדי שהדפדפן לא ינסה לטעון את הספרייה ויקרוס
   const { GooglePlacesAutocomplete } = require('react-native-google-places-autocomplete');
 
   return (
@@ -72,6 +93,9 @@ const AddressInput: React.FC<AddressInputProps> = ({ placeholder, onAddressSelec
           textInput: styles.textInput,
           container: styles.autocompleteContainer,
         }}
+        textInputProps={{
+          placeholderTextColor: colors.textHint,
+        }}
       />
     </View>
   );
@@ -86,14 +110,15 @@ const styles = StyleSheet.create({
     flex: 0,
   },
   textInput: {
-    height: 50,
-    borderRadius: 8,
+    height: 52,
+    borderRadius: 14,
     paddingHorizontal: 16,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.white,
     fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderWidth: 1.5,
+    borderColor: colors.inputBorder,
     textAlign: 'right',
+    color: colors.primaryNavy,
   },
 });
 
