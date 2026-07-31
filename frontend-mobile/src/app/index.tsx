@@ -1,50 +1,34 @@
-// index.tsx — דף הפתיחה של HesedRide
-// הדף הראשון שהמשתמש רואה
-
-import { StyleSheet, Text, View, TouchableOpacity, Image } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import ScreenWrapper from '@/components/ScreenWrapper';
 import { colors } from '@/styles/colors';
 import { typography } from '@/styles/typography';
-import { common } from '@/styles/common';
 
 export default function WelcomePage() {
   return (
-    <ScreenWrapper>
+    <ScreenWrapper padded={false}>
       <View style={styles.container}>
-
-        {/* לוגו */}
-        <View style={styles.logoArea}>
-          <Image
-            source={require('../assets/logo.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={styles.tagline}>למען האחר. בדרך שלך.</Text>
-        </View>
-
-        <View style={common.divider} />
-
         <Text style={styles.question}>כיצד נוכל לעזור היום?</Text>
 
         <View style={styles.btnGroup}>
           <TouchableOpacity
-            style={common.buttonPrimary}
-            onPress={() => router.push('/volunteer/login')}//עובר לדף לוגאין של המתנדב
-            activeOpacity={0.8}
+            style={styles.btnPrimary}
+            onPress={() => router.push('/volunteer/login')}
+            activeOpacity={0.85}
           >
-            <Text style={common.buttonTextPrimary}>אני מתנדב</Text>
+            <Text style={styles.btnPrimaryText}>אני מתנדב </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={common.buttonSecondary}
+            style={styles.btnSecondary}
             onPress={() => router.push('/rider/ride-type')}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
-            <Text style={common.buttonTextSecondary}>אני נוסע</Text>
+            <Text style={styles.btnSecondaryText}>אני נוסע </Text>
           </TouchableOpacity>
         </View>
 
+        <Text style={styles.footer}>נסיעות חסד • התנדבות עם לב</Text>
       </View>
     </ScreenWrapper>
   );
@@ -55,20 +39,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
-  },
-  logoArea: {
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  logo: {
-    height: 80,
-    width: 240,
-  },
-  tagline: {
-    ...typography.bodySecondary,
-    color: colors.primaryBlue,
-    marginTop: 8,
+    paddingHorizontal: 28,
   },
   question: {
     ...typography.h3,
@@ -77,6 +48,44 @@ const styles = StyleSheet.create({
   },
   btnGroup: {
     width: '100%',
-    gap: 12,
+    maxWidth: 360,
+    gap: 14,
+  },
+  btnPrimary: {
+    backgroundColor: colors.primaryBlue,
+    borderRadius: 16,
+    minHeight: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primaryBlue,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  btnPrimaryText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  btnSecondary: {
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: colors.tealAccent,
+    minHeight: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnSecondaryText: {
+    color: colors.primaryNavy,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  footer: {
+    marginTop: 36,
+    fontSize: 13,
+    color: colors.textHint,
+    textAlign: 'center',
   },
 });
