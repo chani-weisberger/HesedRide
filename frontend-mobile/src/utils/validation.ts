@@ -32,13 +32,13 @@ export const validateRideForm = (
   if (!patientName.trim()) {
     errors.patientName = 'נא למלא שם נוסע';
   } else if (patientName.trim().split(/\s+/).length < 2) {
-    errors.patientName = 'נא למלא שם מלא (פרטי + משפחה)';
+    errors.patientName = 'נא למלא שם מלא ';
   }
 
   if (!patientPhone.trim()) {
     errors.patientPhone = 'נא למלא מספר טלפון';
   } else if (!isValidIsraeliPhone(patientPhone)) {
-    errors.patientPhone = 'מספר טלפון לא תקין (לדוגמה: 0501234567)';
+    errors.patientPhone = 'מספר טלפון לא תקין';
   }
 
   return errors;
