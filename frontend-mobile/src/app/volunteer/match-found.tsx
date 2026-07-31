@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, Alert, Linking, ActivityIndicator, Platform, Image } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { StyleSheet, Text, TouchableOpacity, View, Alert, Linking, ActivityIndicator, Platform, Image, BackHandler } from 'react-native';
+import { useRouter, useLocalSearchParams, useNavigation } from 'expo-router';
 import ScreenWrapper from '@/components/ScreenWrapper';
 import { colors } from '@/styles/colors';
 import { common } from '@/styles/common';
@@ -8,6 +8,7 @@ import { typography } from '@/styles/typography';
 
 export default function MatchFoundPage() {
   const router = useRouter();
+  const navigation = useNavigation();
   const params = useLocalSearchParams<{ passenger_name: string; origin: string; destination: string; ride_request_id: string; volunteer_ride_id: string; }>();
 
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -21,6 +22,9 @@ export default function MatchFoundPage() {
   const [riderCancelMessage, setRiderCancelMessage] = useState('');
   const [volunteerCountdown, setVolunteerCountdown] = useState(30);
   const volunteerTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // משתנה עזר שמסמן אם אנחנו עוזבים את המסך בצורה חוקית (למשל, כבר לחצנו "חזרה למסך הבית")
+  const isLeavingLegally = useRef(false);
 
   const cancelRideOnServer = async () => {
     if (!params.volunteer_ride_id || isConfirmed) return;
@@ -36,6 +40,60 @@ export default function MatchFoundPage() {
       console.log('Cancel error:', error);
     }
   };
+
+  // ========================================================
+  // טיפול בחזרה אחורה – כמו כפתור "חזרה למסך הבית"
+  // ========================================================
+  const handleAttemptLeave = () => {
+    if (isLeavingLegally.current) return;
+    isLeavingLegally.current = true;
+
+    // מבטלים בשרת (רק אם עוד לא אושר)
+    cancelRideOnServer();
+
+    // מחזירים למסך הבית
+    router.replace('/volunteer/volunteer-type');
+  };
+
+  useEffect(() => {
+    // 1. אנדרואיד
+    const onBackPress = () => {
+      if (isLeavingLegally.current) return false;
+      handleAttemptLeave();
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+    // 2. React Navigation (ראוטר פנימי / iOS swipe)
+    const unsubscribeRouter = navigation.addListener('beforeRemove', (e) => {
+      if (!isLeavingLegally.current) {
+        e.preventDefault();
+        handleAttemptLeave();
+      }
+    });
+
+    // 3. Web History API (דפדפן)
+    const handleWebBack = () => {
+      if (!isLeavingLegally.current) {
+        window.history.pushState(null, '', window.location.href);
+        handleAttemptLeave();
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handleWebBack);
+    }
+
+    return () => {
+      backHandler.remove();
+      unsubscribeRouter();
+      if (Platform.OS === 'web') {
+        window.removeEventListener('popstate', handleWebBack);
+      }
+    };
+  }, [navigation, params.volunteer_ride_id, isConfirmed]);
+  // ========================================================
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -61,6 +119,7 @@ export default function MatchFoundPage() {
           clearInterval(interval);
           setIsExpiredModalVisible(true);
           setTimeout(() => {
+            isLeavingLegally.current = true;
             router.replace('/volunteer/volunteer-type');
           }, 10000);
         }
@@ -125,29 +184,30 @@ export default function MatchFoundPage() {
 
   const handleVolunteerCancelAndHome = async () => {
     if (volunteerTimerRef.current) clearInterval(volunteerTimerRef.current);
+    isLeavingLegally.current = true;
     await cancelRideOnServer();
     router.replace('/volunteer/volunteer-type');
   };
 
-  // אופציה מעודכנת: חזרה לחיפוש נסיעה (החזרת הסטטוס ל-pending דרך נתיב ה-resume)
-  // אופציה 2 למתנדב: חזרה לחיפוש נסיעה (החזרת הסטטוס ל-pending והחזרה למסך ההמתנה לנוסע)
   const handleVolunteerResumeSearch = async () => {
     if (volunteerTimerRef.current) clearInterval(volunteerTimerRef.current);
     try {
       await fetch(`http://127.0.0.1:8000/api/rides/volunteer/resume/${params.volunteer_ride_id}`, {
         method: 'PATCH',
       });
-      // מחזירים אותו חזרה למסך ההמתנה לנוסע עם מזהה נסיעת המתנדב
+      isLeavingLegally.current = true;
       router.replace({
         pathname: '/volunteer/waiting-for-rider',
         params: { volunteer_ride_id: params.volunteer_ride_id }
       });
     } catch (e) {
+      isLeavingLegally.current = true;
       router.replace('/volunteer/volunteer-type');
     }
   };
 
   const handleCancelAndGoHome = async () => {
+    isLeavingLegally.current = true;
     await cancelRideOnServer();
     router.replace('/volunteer/volunteer-type');
   };
@@ -217,7 +277,10 @@ export default function MatchFoundPage() {
             </Text>
             <TouchableOpacity
               style={[common.buttonPrimary, { marginTop: 16, width: '100%' }]}
-              onPress={() => router.replace('/volunteer/volunteer-type')}
+              onPress={() => {
+                isLeavingLegally.current = true;
+                router.replace('/volunteer/volunteer-type');
+              }}
             >
               <Text style={common.buttonTextPrimary}>חזרה מיידית למסך הבית</Text>
             </TouchableOpacity>

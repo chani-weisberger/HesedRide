@@ -1,18 +1,67 @@
 import ScreenWrapper from '@/components/ScreenWrapper';
 import { colors } from '@/styles/colors';
 import { typography } from '@/styles/typography';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation, Stack } from 'expo-router';
 import { useEffect, useState, useRef } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View, BackHandler, Platform } from 'react-native';
 
 export default function RiderFindingVolunteerPage() {
   const params = useLocalSearchParams();
+  const navigation = useNavigation();
+
   const [isCancelling, setIsCancelling] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [countdown, setCountdown] = useState(15);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // === שומר הסף הקשוח: מותר לעזוב את המסך רק אם זה TRUE ===
+  const isLeavingLegally = useRef(false);
+
   const id = params.ride_request_id || params.id || params.requestId || params.request_id;
+
+  // ========================================================
+  // נעילה הרמטית של כל דרכי החזרה אחורה
+  // ========================================================
+  useEffect(() => {
+    // 1. אנדרואיד: חסימת כפתור חזרה פיזי
+    const onBackPress = () => {
+      if (isLeavingLegally.current) return false;
+      setIsModalVisible(true);
+      return true; // חוסם את הפעולה
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+    // 2. ראוטר / iOS: חסימת ניווט פנימי
+    const unsubscribeRouter = navigation.addListener('beforeRemove', (e) => {
+      if (!isLeavingLegally.current) {
+        e.preventDefault();
+        setIsModalVisible(true);
+      }
+    });
+
+    // 3. ווב / דפדפן: חסימה אגרסיבית של החץ
+    const handleWebBack = () => {
+      if (!isLeavingLegally.current) {
+        // דוחף את העמוד חזרה להיסטוריה בכוח כדי שלא יברח
+        window.history.pushState(null, '', window.location.href);
+        setIsModalVisible(true);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handleWebBack);
+    }
+
+    return () => {
+      backHandler.remove();
+      unsubscribeRouter();
+      if (Platform.OS === 'web') {
+        window.removeEventListener('popstate', handleWebBack);
+      }
+    };
+  }, [navigation]);
+  // ========================================================
 
   useEffect(() => {
     if (!id) {
@@ -28,8 +77,9 @@ export default function RiderFindingVolunteerPage() {
         if (response.ok) {
           const data = await response.json();
 
-          // ברגע שהמתנדב אישר (גם אם המודאל היה פתוח), סוגרים את המודאל ועוברים מיד למסך ההצלחה עם פרטי המתנדב
           if (data.status === 'confirmed') {
+            // התאמה נמצאה! מאשרים לשומר הסף לצאת
+            isLeavingLegally.current = true;
             setIsModalVisible(false);
             if (timerRef.current) clearInterval(timerRef.current);
 
@@ -48,13 +98,12 @@ export default function RiderFindingVolunteerPage() {
       }
     };
 
-    checkRideStatus(); // בדיקה ראשונה
-    const intervalId = setInterval(checkRideStatus, 3000); // בדיקה כל 3 שניות
+    checkRideStatus();
+    const intervalId = setInterval(checkRideStatus, 3000);
 
     return () => clearInterval(intervalId);
   }, [id]);
 
-  // ניהול הטיימר האוטומטי כאשר מודאל הביטול פתוח
   useEffect(() => {
     if (isModalVisible) {
       setCountdown(15);
@@ -78,16 +127,13 @@ export default function RiderFindingVolunteerPage() {
   }, [isModalVisible]);
 
   const handleOpenCancelModal = () => {
-    if (!id) {
-      Alert.alert("שגיאה", "מזהה הנסיעה חסר, לא ניתן לבטל.");
-      return;
-    }
+    if (!id) return;
     setIsModalVisible(true);
   };
 
   const handleDismissModal = () => {
     if (timerRef.current) clearInterval(timerRef.current);
-    setIsModalVisible(false); // ממשיך בחיפוש כרגיל, הסטטוס נשאר proposed/pending והפוללינג ממשיך לעבוד
+    setIsModalVisible(false);
   };
 
   const handleConfirmCancel = async () => {
@@ -105,6 +151,8 @@ export default function RiderFindingVolunteerPage() {
       });
 
       if (response.ok) {
+        // ביטול הצליח! מאשרים לשומר הסף לצאת
+        isLeavingLegally.current = true;
         setIsModalVisible(false);
         router.replace('/rider/ride-type');
       } else {
@@ -121,6 +169,15 @@ export default function RiderFindingVolunteerPage() {
 
   return (
     <ScreenWrapper>
+      {/* מסירים כל אפשרות חזותית או מחוות לחזרה */}
+      <Stack.Screen
+        options={{
+          headerBackVisible: false,
+          headerLeft: () => null,
+          gestureEnabled: false,
+        }}
+      />
+
       <View style={styles.container}>
         <Text style={styles.title}>מחפשים לך מתנדב...</Text>
         <Text style={styles.subtitle}>בקשתך נקלטה. מערכת חסד-רייד מחפשת נהג מתאים עבורך ברגעים אלו.</Text>
@@ -139,7 +196,6 @@ export default function RiderFindingVolunteerPage() {
         </TouchableOpacity>
       </View>
 
-      {/* מודאל ביטול מעוצב עם טיימר לאחור */}
       {isModalVisible && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
