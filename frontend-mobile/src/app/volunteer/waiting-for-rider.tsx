@@ -64,11 +64,7 @@ export default function VolunteerWaitingForRiderPage() {
     }
 
     isLeavingLegally.current = true;
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/volunteer/volunteer-type');
-    }
+    router.replace('/volunteer/volunteer-type');
   };
 
   useEffect(() => {
@@ -77,7 +73,10 @@ export default function VolunteerWaitingForRiderPage() {
       handleAttemptLeave();
       return true;
     };
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      onBackPress
+    );
 
     const unsubscribeRouter = navigation.addListener('beforeRemove', (e) => {
       if (!isLeavingLegally.current) {
@@ -174,7 +173,7 @@ export default function VolunteerWaitingForRiderPage() {
     } catch (e) {
       if (isCancelledRef.current) return;
       Alert.alert('שגיאה', 'בעיית תקשורת');
-      router.back();
+      router.replace('/volunteer/volunteer-type');
     }
   };
 
@@ -242,7 +241,6 @@ export default function VolunteerWaitingForRiderPage() {
     };
 
     checkRideStatus();
-
     intervalId = setInterval(checkRideStatus, 1000);
 
     timeoutId = setTimeout(() => {

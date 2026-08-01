@@ -1,26 +1,61 @@
-// volunteer/volunteer-ride-summary.tsx
 import ScreenWrapper from '@/components/ScreenWrapper';
 import { colors } from '@/styles/colors';
 import { common } from '@/styles/common';
 import { typography } from '@/styles/typography';
 import { router, useLocalSearchParams } from 'expo-router';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect } from 'react';
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ActivityIndicator,
+} from 'react-native';
 
 export default function VolunteerGlobalRideSummaryPage() {
-  const { rideData, typeTitle } = useLocalSearchParams<{ rideData: string; typeTitle: string }>();
+  const { rideData, typeTitle } = useLocalSearchParams<{
+    rideData: string;
+    typeTitle: string;
+  }>();
 
-  // במידה ואין נתונים (למשל אם דף הבית נטען ישירות), ניתן ערך ריק למניעת קריסה
-  const ride = rideData ? JSON.parse(rideData) : { origin: '', destination: '', hesed_minutes: '', seats_count: 1 };
+  let ride: {
+    origin: string;
+    destination: string;
+    hesed_minutes: string;
+    seats_count: number;
+  } | null = null;
+
+  try {
+    if (rideData) ride = JSON.parse(rideData);
+  } catch {
+    ride = null;
+  }
+
+  useEffect(() => {
+    if (!ride) {
+      router.replace('/volunteer/immediate');
+    }
+  }, [ride]);
+
+  if (!ride) {
+    return (
+      <ScreenWrapper>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator color={colors.primaryBlue} />
+        </View>
+      </ScreenWrapper>
+    );
+  }
+
   const currentTypeTitle = typeTitle || 'נסיעה עכשווית';
 
   const handleConfirm = () => {
-    // ניווט מיידי למסך הבא - שם יקרה ה-Fetch האמיתי
     router.replace({
       pathname: '/volunteer/waiting-for-rider',
       params: {
         rideData: rideData,
-        typeTitle: typeTitle
-      }
+        typeTitle: typeTitle,
+      },
     });
   };
 
@@ -39,7 +74,6 @@ export default function VolunteerGlobalRideSummaryPage() {
 
         <View style={common.divider} />
 
-        {/* כאן החזרנו את הקארד עם הנתונים! */}
         <View style={common.card}>
           <Text style={styles.sectionTitle}>פרטי המסלול והרכב</Text>
           <SummaryRow label="נקודת מוצא" value={ride.origin} />
@@ -57,7 +91,10 @@ export default function VolunteerGlobalRideSummaryPage() {
             <Text style={common.buttonTextPrimary}>אישור ופרסום נסיעה </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.replace('/volunteer/immediate')}
+          >
             <Text style={styles.backText}>→ חזרה לעריכה</Text>
           </TouchableOpacity>
         </View>
@@ -70,8 +107,19 @@ const styles = StyleSheet.create({
   container: { padding: 24, gap: 16 },
   title: { ...typography.h2, textAlign: 'center', color: colors.primaryNavy },
   subtitle: { ...typography.bodySecondary, textAlign: 'center', marginTop: 4 },
-  sectionTitle: { ...typography.h3, marginBottom: 16, color: colors.primaryNavy },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.lightCyan },
+  sectionTitle: {
+    ...typography.h3,
+    marginBottom: 16,
+    color: colors.primaryNavy,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.lightCyan,
+  },
   rowLabel: { ...typography.label, color: colors.textSecondary },
   rowValue: { ...typography.body, fontWeight: '500' },
   btnGroup: { gap: 12, marginTop: 8 },

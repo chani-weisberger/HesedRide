@@ -1,5 +1,5 @@
 // ride-form.tsx — טופס בקשת נסיעה מיידית
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -14,14 +14,19 @@ import { colors } from '@/styles/colors';
 import { typography } from '@/styles/typography';
 import { RideRequest } from '@/services/rideService';
 import { validateRideForm } from '@/utils/validation';
+import { saveRideDraft, loadRideDraft } from '@/utils/rideDraft';
 import AddressInput from '@/components/AddressInput';
 
 export default function RideFormPage() {
+  const draft = loadRideDraft();
+
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
-  const [passengerCount, setPassengerCount] = useState(1);
-  const [patientName, setPatientName] = useState('');
-  const [patientPhone, setPatientPhone] = useState('');
+  const [passengerCount, setPassengerCount] = useState(
+    draft?.passenger_count || 1
+  );
+  const [patientName, setPatientName] = useState(draft?.patient_name || '');
+  const [patientPhone, setPatientPhone] = useState(draft?.patient_phone || '');
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
@@ -30,6 +35,14 @@ export default function RideFormPage() {
 
   const webOutline =
     Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null;
+
+  useEffect(() => {
+    saveRideDraft({
+      passenger_count: passengerCount,
+      patient_name: patientName,
+      patient_phone: patientPhone,
+    });
+  }, [passengerCount, patientName, patientPhone]);
 
   const handleNext = () => {
     const newErrors = validateRideForm(
@@ -44,18 +57,21 @@ export default function RideFormPage() {
     }
 
     const now = new Date();
-    const rideDate = now.toISOString().split('T')[0];
-    const rideTime = now.toTimeString().split(' ')[0];
-
     const rideData: RideRequest = {
       origin,
       destination,
-      ride_date: rideDate,
-      ride_time: rideTime,
+      ride_date: now.toISOString().split('T')[0],
+      ride_time: now.toTimeString().split(' ')[0],
       passenger_count: passengerCount,
       patient_name: patientName,
       patient_phone: patientPhone,
     };
+
+    saveRideDraft({
+      passenger_count: passengerCount,
+      patient_name: patientName,
+      patient_phone: patientPhone,
+    });
 
     router.push({
       pathname: '/rider/ride-summary' as any,
@@ -75,7 +91,7 @@ export default function RideFormPage() {
           <Text style={styles.label}>כתובת מוצא</Text>
           <View style={{ zIndex: 20, marginBottom: 4 }}>
             <AddressInput
-              placeholder="לדוגמה: רחוב הרצל 10, תל אביב / בית חולים איכילוב"
+              placeholder="לדוגמה: רחוב הרצל 10, תל אביב"
               onAddressSelect={(address) => {
                 setOrigin(address);
                 setErrors((e) => ({ ...e, origin: '' }));
@@ -89,7 +105,7 @@ export default function RideFormPage() {
           <Text style={styles.label}>כתובת יעד</Text>
           <View style={{ zIndex: 10, marginBottom: 4 }}>
             <AddressInput
-              placeholder=" לדוגמה: בית חולים איכילוב / רחוב הרצל 10, תל אביב"
+              placeholder="לדוגמה: בית חולים איכילוב"
               onAddressSelect={(address) => {
                 setDestination(address);
                 setErrors((e) => ({ ...e, destination: '' }));
@@ -136,7 +152,7 @@ export default function RideFormPage() {
               focusedField === 'name' && styles.inputFocused,
               errors.patientName ? styles.inputError : null,
             ]}
-            placeholder="ישראל ישראלי"
+            placeholder="שם מלא"
             placeholderTextColor={colors.textHint}
             value={patientName}
             onChangeText={(text) => {
@@ -191,7 +207,10 @@ export default function RideFormPage() {
             <Text style={styles.btnPrimaryText}>המשך לסיכום</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.replace('/rider/ride-type')}
+          >
             <Text style={styles.backText}>→ חזרה</Text>
           </TouchableOpacity>
         </View>

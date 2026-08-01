@@ -142,7 +142,10 @@ export default function ImmediateRideFormPage() {
           >
             <Text style={styles.btnPrimaryText}>המשך</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.replace('/volunteer/volunteer-type')}
+          >
             <Text style={styles.backText}>→ חזרה</Text>
           </TouchableOpacity>
         </View>
