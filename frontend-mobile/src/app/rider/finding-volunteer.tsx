@@ -3,7 +3,25 @@ import { colors } from '@/styles/colors';
 import { typography } from '@/styles/typography';
 import { router, useLocalSearchParams, useNavigation, Stack } from 'expo-router';
 import { useEffect, useState, useRef } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View, BackHandler, Platform } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  BackHandler,
+  Platform,
+} from 'react-native';
+
+const SEARCH_TIMEOUT_MS = 30 * 60 * 1000; // 30 דקות
+const SEARCH_TIMEOUT_SEC = 30 * 60;
+
+function formatTime(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
 
 export default function RiderFindingVolunteerPage() {
   const params = useLocalSearchParams();
@@ -12,26 +30,28 @@ export default function RiderFindingVolunteerPage() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [countdown, setCountdown] = useState(15);
+  const [searchSecondsLeft, setSearchSecondsLeft] = useState(SEARCH_TIMEOUT_SEC);
+  const [showTimeoutModal, setShowTimeoutModal] = useState(false);
+
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-  // === שומר הסף הקשוח: מותר לעזוב את המסך רק אם זה TRUE ===
+  const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isLeavingLegally = useRef(false);
+  const didAutoCancelRef = useRef(false);
 
-  const id = params.ride_request_id || params.id || params.requestId || params.request_id;
+  const id =
+    params.ride_request_id || params.id || params.requestId || params.request_id;
 
-  // ========================================================
-  // נעילה הרמטית של כל דרכי החזרה אחורה
-  // ========================================================
   useEffect(() => {
-    // 1. אנדרואיד: חסימת כפתור חזרה פיזי
     const onBackPress = () => {
       if (isLeavingLegally.current) return false;
       setIsModalVisible(true);
-      return true; // חוסם את הפעולה
+      return true;
     };
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      onBackPress
+    );
 
-    // 2. ראוטר / iOS: חסימת ניווט פנימי
     const unsubscribeRouter = navigation.addListener('beforeRemove', (e) => {
       if (!isLeavingLegally.current) {
         e.preventDefault();
@@ -39,10 +59,8 @@ export default function RiderFindingVolunteerPage() {
       }
     });
 
-    // 3. ווב / דפדפן: חסימה אגרסיבית של החץ
     const handleWebBack = () => {
       if (!isLeavingLegally.current) {
-        // דוחף את העמוד חזרה להיסטוריה בכוח כדי שלא יברח
         window.history.pushState(null, '', window.location.href);
         setIsModalVisible(true);
       }
@@ -61,15 +79,55 @@ export default function RiderFindingVolunteerPage() {
       }
     };
   }, [navigation]);
-  // ========================================================
+
+  // סטופר 30 דקות + ביטול אוטומטי
+  useEffect(() => {
+    if (!id || showTimeoutModal) return;
+
+    searchTimerRef.current = setInterval(() => {
+      setSearchSecondsLeft((prev) => {
+        if (prev <= 1) {
+          if (searchTimerRef.current) clearInterval(searchTimerRef.current);
+          handleSearchTimeout();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (searchTimerRef.current) clearInterval(searchTimerRef.current);
+    };
+  }, [id, showTimeoutModal]);
+
+  const handleSearchTimeout = async () => {
+    if (didAutoCancelRef.current || !id) return;
+    didAutoCancelRef.current = true;
+
+    try {
+      await fetch(`http://127.0.0.1:8000/api/rides/request/cancel/${id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      });
+    } catch (e) {
+      console.log('Auto-cancel on timeout failed:', e);
+    }
+
+    setShowTimeoutModal(true);
+  };
 
   useEffect(() => {
     if (!id) {
-      Alert.alert("תקלה בניתוב", "מספר הנסיעה חסר!");
+      Alert.alert('תקלה בניתוב', 'מספר הנסיעה חסר!');
       return;
     }
 
     const checkRideStatus = async () => {
+      if (didAutoCancelRef.current) return;
+
       try {
         const url = `http://127.0.0.1:8000/api/rides/${id}/status?ride_type=request&t=${Date.now()}`;
         const response = await fetch(url);
@@ -78,23 +136,23 @@ export default function RiderFindingVolunteerPage() {
           const data = await response.json();
 
           if (data.status === 'confirmed') {
-            // התאמה נמצאה! מאשרים לשומר הסף לצאת
             isLeavingLegally.current = true;
             setIsModalVisible(false);
             if (timerRef.current) clearInterval(timerRef.current);
+            if (searchTimerRef.current) clearInterval(searchTimerRef.current);
 
             router.replace({
               pathname: '/rider/match-found',
               params: {
-                volunteer_name: data.volunteer_name || 'ישראל ישראלי',
-                volunteer_phone: data.volunteer_phone || '050-1234567',
-                volunteer_car: data.volunteer_car || 'טויוטה קורולה לבנה'
-              }
+                volunteer_name: data.volunteer_name || 'מתנדב',
+                volunteer_phone: data.volunteer_phone || '',
+                volunteer_car: data.volunteer_car || '',
+              },
             });
           }
         }
       } catch (error) {
-        console.error("שגיאה בפוללינג:", error);
+        console.error('שגיאה בפוללינג:', error);
       }
     };
 
@@ -146,30 +204,37 @@ export default function RiderFindingVolunteerPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          Accept: 'application/json',
         },
       });
 
       if (response.ok) {
-        // ביטול הצליח! מאשרים לשומר הסף לצאת
         isLeavingLegally.current = true;
+        if (searchTimerRef.current) clearInterval(searchTimerRef.current);
         setIsModalVisible(false);
         router.replace('/rider/ride-type');
       } else {
         const errorData = await response.json();
-        Alert.alert("שגיאה", errorData.detail || "לא ניתן היה לבטל את הבקשה כרגע.");
+        Alert.alert(
+          'שגיאה',
+          errorData.detail || 'לא ניתן היה לבטל את הבקשה כרגע.'
+        );
       }
     } catch (err) {
-      console.error("CLIENT DEBUG ERROR:", err);
-      Alert.alert("שגיאת תקשורת", "בדקי את החיבור לשרת.");
+      console.error('CLIENT DEBUG ERROR:', err);
+      Alert.alert('שגיאת תקשורת', 'בדקי את החיבור לשרת.');
     } finally {
       setIsCancelling(false);
     }
   };
 
+  const handleTimeoutGoHome = () => {
+    isLeavingLegally.current = true;
+    router.replace('/rider/ride-type');
+  };
+
   return (
     <ScreenWrapper>
-      {/* מסירים כל אפשרות חזותית או מחוות לחזרה */}
       <Stack.Screen
         options={{
           headerBackVisible: false,
@@ -180,22 +245,42 @@ export default function RiderFindingVolunteerPage() {
 
       <View style={styles.container}>
         <Text style={styles.title}>מחפשים לך מתנדב...</Text>
-        <Text style={styles.subtitle}>בקשתך נקלטה. מערכת חסד-רייד מחפשת נהג מתאים עבורך ברגעים אלו.</Text>
+        <Text style={styles.subtitle}>
+          בקשתך נקלטה. מערכת חסד-רייד מחפשת נהג מתאים עבורך ברגעים אלו.
+        </Text>
+
+        {/* סטופר 30 דקות */}
+        <View style={styles.timerBox}>
+          <Text style={styles.timerLabel}>זמן מקסימלי לחיפוש</Text>
+          <Text
+            style={[
+              styles.timerValue,
+              searchSecondsLeft <= 60 && styles.timerUrgent,
+            ]}
+          >
+            {formatTime(searchSecondsLeft)}
+          </Text>
+        </View>
 
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color={colors.primaryBlue} style={styles.loader} />
+          <ActivityIndicator
+            size="large"
+            color={colors.primaryBlue}
+            style={styles.loader}
+          />
         </View>
 
         <TouchableOpacity
           style={styles.cancelButton}
           onPress={handleOpenCancelModal}
-          disabled={isCancelling}
+          disabled={isCancelling || showTimeoutModal}
           activeOpacity={0.8}
         >
           <Text style={styles.cancelButtonText}>ביטול חיפוש נסיעה</Text>
         </TouchableOpacity>
       </View>
 
+      {/* מודאל ביטול ידני */}
       {isModalVisible && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -231,14 +316,70 @@ export default function RiderFindingVolunteerPage() {
           </View>
         </View>
       )}
+
+      {/* מודאל סיום 30 דקות */}
+      {showTimeoutModal && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>לא נמצא מתנדב</Text>
+            <Text style={styles.modalText}>
+              עברה חצי שעה ולא נמצא מתנדב זמין. הבקשה בוטלה — אפשר לנסות שוב
+              מאוחר יותר.
+            </Text>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.primaryButton, { width: '100%' }]}
+              onPress={handleTimeoutGoHome}
+            >
+              <Text style={styles.confirmButtonText}>חזרה</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center', alignItems: 'center', gap: 20 },
-  title: { ...typography.h2, color: colors.primaryNavy, textAlign: 'center' },
-  subtitle: { ...typography.bodySecondary, textAlign: 'center', paddingHorizontal: 20 },
+  container: {
+    flex: 1,
+    padding: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 20,
+  },
+  title: {
+    ...typography.h2,
+    color: colors.primaryNavy,
+    textAlign: 'center',
+  },
+  subtitle: {
+    ...typography.bodySecondary,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  timerBox: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.lightCyan,
+  },
+  timerLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  timerValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.primaryNavy,
+    fontVariant: ['tabular-nums'],
+  },
+  timerUrgent: {
+    color: colors.error,
+  },
   loaderContainer: { marginVertical: 20 },
   loader: { transform: [{ scale: 1.5 }] },
   cancelButton: {
@@ -311,6 +452,10 @@ const styles = StyleSheet.create({
   },
   confirmButton: {
     backgroundColor: '#dc2626',
+  },
+  primaryButton: {
+    backgroundColor: colors.primaryBlue,
+    marginTop: 16,
   },
   confirmButtonText: {
     color: '#ffffff',
