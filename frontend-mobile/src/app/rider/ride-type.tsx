@@ -24,7 +24,10 @@ export default function RideTypePage() {
           <Text style={styles.primaryBtnHint}>אני צריך נסיעה עכשיו</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => router.replace('/')}
+        >
           <Text style={styles.backText}>→ חזרה</Text>
         </TouchableOpacity>
       </View>

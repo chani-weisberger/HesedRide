@@ -14,7 +14,6 @@ import {
   Platform,
 } from 'react-native';
 
-const SEARCH_TIMEOUT_MS = 30 * 60 * 1000; // 30 דקות
 const SEARCH_TIMEOUT_SEC = 30 * 60;
 
 function formatTime(totalSeconds: number): string {
@@ -32,6 +31,7 @@ export default function RiderFindingVolunteerPage() {
   const [countdown, setCountdown] = useState(15);
   const [searchSecondsLeft, setSearchSecondsLeft] = useState(SEARCH_TIMEOUT_SEC);
   const [showTimeoutModal, setShowTimeoutModal] = useState(false);
+  const [timerReady, setTimerReady] = useState(false);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -40,6 +40,13 @@ export default function RiderFindingVolunteerPage() {
 
   const id =
     params.ride_request_id || params.id || params.requestId || params.request_id;
+  const storageKey = id ? `rider_search_start_${id}` : null;
+
+  const clearSearchStart = () => {
+    if (Platform.OS === 'web' && storageKey) {
+      localStorage.removeItem(storageKey);
+    }
+  };
 
   useEffect(() => {
     const onBackPress = () => {
@@ -80,9 +87,34 @@ export default function RiderFindingVolunteerPage() {
     };
   }, [navigation]);
 
-  // סטופר 30 דקות + ביטול אוטומטי
   useEffect(() => {
-    if (!id || showTimeoutModal) return;
+    if (!id || !storageKey) return;
+
+    let startMs: number;
+    if (Platform.OS === 'web') {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        startMs = Number(saved);
+      } else {
+        startMs = Date.now();
+        localStorage.setItem(storageKey, String(startMs));
+      }
+    } else {
+      startMs = Date.now();
+    }
+
+    const elapsedSec = Math.floor((Date.now() - startMs) / 1000);
+    const left = Math.max(0, SEARCH_TIMEOUT_SEC - elapsedSec);
+    setSearchSecondsLeft(left);
+    setTimerReady(true);
+
+    if (left <= 0) {
+      handleSearchTimeout();
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (!id || !timerReady || showTimeoutModal) return;
 
     searchTimerRef.current = setInterval(() => {
       setSearchSecondsLeft((prev) => {
@@ -98,11 +130,12 @@ export default function RiderFindingVolunteerPage() {
     return () => {
       if (searchTimerRef.current) clearInterval(searchTimerRef.current);
     };
-  }, [id, showTimeoutModal]);
+  }, [id, timerReady, showTimeoutModal]);
 
   const handleSearchTimeout = async () => {
     if (didAutoCancelRef.current || !id) return;
     didAutoCancelRef.current = true;
+    clearSearchStart();
 
     try {
       await fetch(`http://127.0.0.1:8000/api/rides/request/cancel/${id}`, {
@@ -137,6 +170,7 @@ export default function RiderFindingVolunteerPage() {
 
           if (data.status === 'confirmed') {
             isLeavingLegally.current = true;
+            clearSearchStart();
             setIsModalVisible(false);
             if (timerRef.current) clearInterval(timerRef.current);
             if (searchTimerRef.current) clearInterval(searchTimerRef.current);
@@ -198,18 +232,20 @@ export default function RiderFindingVolunteerPage() {
     if (timerRef.current) clearInterval(timerRef.current);
     try {
       setIsCancelling(true);
-      const targetUrl = `http://127.0.0.1:8000/api/rides/request/cancel/${id}`;
-
-      const response = await fetch(targetUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-      });
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/rides/request/cancel/${id}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+        }
+      );
 
       if (response.ok) {
         isLeavingLegally.current = true;
+        clearSearchStart();
         if (searchTimerRef.current) clearInterval(searchTimerRef.current);
         setIsModalVisible(false);
         router.replace('/rider/ride-type');
@@ -221,7 +257,6 @@ export default function RiderFindingVolunteerPage() {
         );
       }
     } catch (err) {
-      console.error('CLIENT DEBUG ERROR:', err);
       Alert.alert('שגיאת תקשורת', 'בדקי את החיבור לשרת.');
     } finally {
       setIsCancelling(false);
@@ -249,7 +284,6 @@ export default function RiderFindingVolunteerPage() {
           בקשתך נקלטה. מערכת חסד-רייד מחפשת נהג מתאים עבורך ברגעים אלו.
         </Text>
 
-        {/* סטופר 30 דקות */}
         <View style={styles.timerBox}>
           <Text style={styles.timerLabel}>זמן מקסימלי לחיפוש</Text>
           <Text
@@ -280,7 +314,6 @@ export default function RiderFindingVolunteerPage() {
         </TouchableOpacity>
       </View>
 
-      {/* מודאל ביטול ידני */}
       {isModalVisible && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -291,7 +324,6 @@ export default function RiderFindingVolunteerPage() {
             <Text style={styles.timerText}>
               הבקשה תבוטל אוטומטית בעוד {countdown} שניות...
             </Text>
-
             <View style={styles.modalBtnGroup}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.confirmButton]}
@@ -304,7 +336,6 @@ export default function RiderFindingVolunteerPage() {
                   <Text style={styles.confirmButtonText}>כן, בטל בקשה</Text>
                 )}
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={[styles.modalButton, styles.dismissButton]}
                 onPress={handleDismissModal}
@@ -317,7 +348,6 @@ export default function RiderFindingVolunteerPage() {
         </View>
       )}
 
-      {/* מודאל סיום 30 דקות */}
       {showTimeoutModal && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -415,11 +445,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
   },
   modalTitle: {
     ...typography.h3,
@@ -440,36 +465,20 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
   },
-  modalBtnGroup: {
-    width: '100%',
-    gap: 12,
-  },
+  modalBtnGroup: { width: '100%', gap: 12 },
   modalButton: {
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  confirmButton: {
-    backgroundColor: '#dc2626',
-  },
-  primaryButton: {
-    backgroundColor: colors.primaryBlue,
-    marginTop: 16,
-  },
-  confirmButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  confirmButton: { backgroundColor: '#dc2626' },
+  primaryButton: { backgroundColor: colors.primaryBlue, marginTop: 16 },
+  confirmButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
   dismissButton: {
     backgroundColor: '#f3f4f6',
     borderWidth: 1,
     borderColor: '#d1d5db',
   },
-  dismissButtonText: {
-    color: '#374151',
-    fontSize: 16,
-    fontWeight: '500',
-  },
+  dismissButtonText: { color: '#374151', fontSize: 16, fontWeight: '500' },
 });

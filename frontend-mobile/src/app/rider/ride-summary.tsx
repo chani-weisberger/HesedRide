@@ -1,7 +1,4 @@
-// ride-summary.tsx — דף סיכום לפני שליחת הבקשה
-// מציג את כל הפרטים שהנוסע מילא ומאפשר לאשר או לחזור
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,45 +13,57 @@ import { colors } from '@/styles/colors';
 import { common } from '@/styles/common';
 import { typography } from '@/styles/typography';
 import { createRide, RideRequest } from '@/services/rideService';
+import { clearRideDraft } from '@/utils/rideDraft';
 
 export default function RideSummaryPage() {
-
   const [isLoading, setIsLoading] = useState(false);
-
-  // קוראים את הנתונים שהועברו מדף הטופס
   const { rideData } = useLocalSearchParams<{ rideData: string }>();
 
-  // JSON.parse — הופך את המחרוזת חזרה לאובייקט
-  const ride: RideRequest = JSON.parse(rideData);
+  let ride: RideRequest | null = null;
+  try {
+    if (rideData) ride = JSON.parse(rideData);
+  } catch {
+    ride = null;
+  }
 
-  // ======= שליחה לשרת =======
+  useEffect(() => {
+    if (!ride) {
+      router.replace('/rider/ride-form');
+    }
+  }, [ride]);
+
+  if (!ride) {
+    return (
+      <ScreenWrapper>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator color={colors.primaryBlue} />
+        </View>
+      </ScreenWrapper>
+    );
+  }
+
   const handleSubmit = async () => {
     setIsLoading(true);
     try {
-      const response = await createRide(ride);
+      const response = await createRide(ride!);
       const data = await response.json();
       setIsLoading(false);
 
       if (response.ok) {
-        
-        if (response.ok) {
-
+        clearRideDraft();
         router.replace({
           pathname: '/rider/finding-volunteer' as any,
           params: { ride_request_id: data.id },
         });
-      }
       } else {
         Alert.alert('שגיאה', data.message || 'הגשת הבקשה נכשלה');
       }
-
     } catch (error) {
       setIsLoading(false);
       Alert.alert('שגיאת תקשורת', 'לא מצליח להתחבר לשרת');
     }
   };
 
-  // רכיב קטן שמציג שורה אחת בסיכום
   const SummaryRow = ({ label, value }: { label: string; value: string }) => (
     <View style={styles.row}>
       <Text style={styles.rowValue}>{value}</Text>
@@ -62,32 +71,32 @@ export default function RideSummaryPage() {
     </View>
   );
 
-  // ======= ממשק =======
   return (
     <ScreenWrapper scrollable>
       <View style={styles.container}>
-
         <Text style={styles.title}>סיכום הבקשה</Text>
-        <Text style={styles.subtitle}>אנא בדקי שהפרטים נכונים לפני השליחה</Text>
+        <Text style={styles.subtitle}>
+          אנא בדקי שהפרטים נכונים לפני השליחה
+        </Text>
 
         <View style={common.divider} />
 
-        {/* כרטיסיית פרטי נסיעה */}
         <View style={common.card}>
           <Text style={styles.sectionTitle}>פרטי הנסיעה</Text>
-          <SummaryRow label="מוצא"        value={ride.origin} />
-          <SummaryRow label="יעד"         value={ride.destination} />
-          <SummaryRow label="מספר נוסעים" value={String(ride.passenger_count)} />
+          <SummaryRow label="מוצא" value={ride.origin} />
+          <SummaryRow label="יעד" value={ride.destination} />
+          <SummaryRow
+            label="מספר נוסעים"
+            value={String(ride.passenger_count)}
+          />
         </View>
 
-        {/* כרטיסיית פרטי נוסע */}
         <View style={common.card}>
           <Text style={styles.sectionTitle}>פרטי הנוסע</Text>
-          <SummaryRow label="שם"    value={ride.patient_name} />
+          <SummaryRow label="שם" value={ride.patient_name} />
           <SummaryRow label="טלפון" value={ride.patient_phone} />
         </View>
 
-        {/* כפתורים */}
         <View style={styles.btnGroup}>
           <TouchableOpacity
             style={common.buttonPrimary}
@@ -95,20 +104,20 @@ export default function RideSummaryPage() {
             disabled={isLoading}
             activeOpacity={0.8}
           >
-            {isLoading
-              ? <ActivityIndicator color={colors.white} />
-              : <Text style={common.buttonTextPrimary}>אישור ושליחה</Text>
-            }
+            {isLoading ? (
+              <ActivityIndicator color={colors.white} />
+            ) : (
+              <Text style={common.buttonTextPrimary}>אישור ושליחה</Text>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.backBtn}
-            onPress={() => router.back()}
+            onPress={() => router.replace('/rider/ride-form')}
           >
             <Text style={styles.backText}>→ חזרה לעריכה</Text>
           </TouchableOpacity>
         </View>
-
       </View>
     </ScreenWrapper>
   );
