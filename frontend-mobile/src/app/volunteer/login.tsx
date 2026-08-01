@@ -365,7 +365,7 @@ export default function VolunteerAuthPage() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/')}>
           <Text style={styles.backText}>→ חזרה</Text>
         </TouchableOpacity>
       </View>
