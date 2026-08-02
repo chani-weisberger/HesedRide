@@ -11,10 +11,16 @@ const AsyncStorage =
     ? require('@react-native-async-storage/async-storage').default
     : null;
 
+/**
+ * VolunteerDashboard executes its corresponding UI or business operation.
+ */
 export default function VolunteerDashboard() {
   const [firstName, setFirstName] = useState('מתנדב');
 
   useEffect(() => {
+    /**
+     * fetchUserName executes its corresponding UI or business operation.
+     */
     const fetchUserName = async () => {
       try {
         let storedName: string | null = null;
@@ -36,7 +42,6 @@ export default function VolunteerDashboard() {
           setFirstName(first);
         }
       } catch (error) {
-        console.log('Error fetching user name:', error);
       }
     };
 

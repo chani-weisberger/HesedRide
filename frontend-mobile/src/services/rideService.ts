@@ -1,9 +1,6 @@
-// rideService.ts — כל הבקשות לשרת שקשורות לנסיעות
 import * as SecureStore from 'expo-secure-store';
 const API_URL = 'http://127.0.0.1:8000/api';
 
-// טיפוס — מגדיר מה צריך להיות בבקשת נסיעה
-// זה כמו "תבנית" שמבטיחה שלא נשכח שדה
 export type RideRequest = {
   origin: string;
   destination: string;
@@ -14,7 +11,9 @@ export type RideRequest = {
   patient_phone: string;
 };
 
-// פונקציה שמגישה בקשת נסיעה לשרת
+/**
+ * createRide executes its corresponding UI or business operation.
+ */
 export const createRide = async (rideData: RideRequest) => {
   const response = await fetch(`${API_URL}/rides/create`, {
     method: 'POST',
@@ -29,6 +28,9 @@ export type VolunteerRideRequest = {
   available_seats: number;
   grace_minutes: number;
 };
+/**
+ * createVolunteerRide executes its corresponding UI or business operation.
+ */
 export const createVolunteerRide = async (rideData: VolunteerRideRequest) => {
   const token = await SecureStore.getItemAsync('userToken');
   const response = await fetch(`${API_URL}/rides/volunteer/create`, {

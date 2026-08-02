@@ -20,7 +20,6 @@ export const common = StyleSheet.create({
     elevation: 3,
   },
 
-  // כפתור ראשי — טורקיז, גדול ונוח ללחיצה
   buttonPrimary: {
     backgroundColor: colors.primaryBlue,
     borderRadius: 16,

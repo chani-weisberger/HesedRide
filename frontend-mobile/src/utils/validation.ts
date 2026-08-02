@@ -1,4 +1,7 @@
-/** בדיקת תעודת זהות ישראלית (כולל ספרת ביקורת) */
+
+/**
+ * isValidIsraeliId executes its corresponding UI or business operation.
+ */
 export function isValidIsraeliId(id: string): boolean {
   const clean = id.trim();
   if (!/^\d{9}$/.test(clean)) return false;
@@ -12,12 +15,18 @@ export function isValidIsraeliId(id: string): boolean {
   return sum % 10 === 0;
 }
 
-/** טלפון נייד ישראלי */
+
+/**
+ * isValidIsraeliPhone executes its corresponding UI or business operation.
+ */
 export function isValidIsraeliPhone(phone: string): boolean {
   const clean = phone.replace(/[-\s]/g, '');
   return /^05\d{8}$/.test(clean);
 }
 
+/**
+ * validateRideForm validates passenger ride form inputs and returns field errors.
+ */
 export const validateRideForm = (
   origin: string,
   destination: string,
@@ -44,6 +53,9 @@ export const validateRideForm = (
   return errors;
 };
 
+/**
+ * validateVolunteerAuth validates login or registration credentials for volunteers.
+ */
 export const validateVolunteerAuth = (data: {
   idNumber: string;
   password: string;

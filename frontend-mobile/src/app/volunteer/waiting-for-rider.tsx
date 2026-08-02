@@ -21,6 +21,9 @@ const AsyncStorage =
     ? require('@react-native-async-storage/async-storage').default
     : null;
 
+/**
+ * VolunteerWaitingForRiderPage executes its corresponding UI or business operation.
+ */
 export default function VolunteerWaitingForRiderPage() {
   const { volunteer_ride_id, match_found, match_details, rideData } =
     useLocalSearchParams<{
@@ -39,6 +42,9 @@ export default function VolunteerWaitingForRiderPage() {
   const currentRideIdRef = useRef<string | null>(volunteer_ride_id || null);
   const isLeavingLegally = useRef(false);
 
+  /**
+   * getAuthToken executes its corresponding UI or business operation.
+   */
   const getAuthToken = async () => {
     if (Platform.OS === 'web') return localStorage.getItem('userToken');
     try {
@@ -50,6 +56,9 @@ export default function VolunteerWaitingForRiderPage() {
     }
   };
 
+  /**
+   * handleAttemptLeave executes its corresponding UI or business operation.
+   */
   const handleAttemptLeave = () => {
     isCancelledRef.current = true;
 
@@ -68,6 +77,9 @@ export default function VolunteerWaitingForRiderPage() {
   };
 
   useEffect(() => {
+    /**
+     * onBackPress executes its corresponding UI or business operation.
+     */
     const onBackPress = () => {
       if (isLeavingLegally.current) return false;
       handleAttemptLeave();
@@ -85,6 +97,9 @@ export default function VolunteerWaitingForRiderPage() {
       }
     });
 
+    /**
+     * handleWebBack executes its corresponding UI or business operation.
+     */
     const handleWebBack = () => {
       if (!isLeavingLegally.current) {
         window.history.pushState(null, '', window.location.href);
@@ -106,6 +121,9 @@ export default function VolunteerWaitingForRiderPage() {
     };
   }, [navigation]);
 
+  /**
+   * createRideAndStartPolling executes its corresponding UI or business operation.
+   */
   const createRideAndStartPolling = async (rideJson: string) => {
     try {
       const ride = JSON.parse(rideJson);
@@ -177,11 +195,17 @@ export default function VolunteerWaitingForRiderPage() {
     }
   };
 
+  /**
+   * startPollingFlow executes its corresponding UI or business operation.
+   */
   const startPollingFlow = (rideId: string) => {
     let isMatchFound = false;
     let timeoutId: NodeJS.Timeout | null = null;
     let intervalId: NodeJS.Timeout | null = null;
 
+    /**
+     * autoCancelRideInBackend executes its corresponding UI or business operation.
+     */
     const autoCancelRideInBackend = async () => {
       try {
         const token = await getAuthToken();
@@ -195,6 +219,9 @@ export default function VolunteerWaitingForRiderPage() {
       } catch (error) {}
     };
 
+    /**
+     * checkRideStatus executes its corresponding UI or business operation.
+     */
     const checkRideStatus = async () => {
       if (isMatchFound || isCancelledRef.current) return;
 

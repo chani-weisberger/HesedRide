@@ -5,6 +5,9 @@ import ScreenWrapper from '@/components/ScreenWrapper';
 import { colors } from '@/styles/colors';
 import { typography } from '@/styles/typography';
 
+/**
+ * RiderMatchFoundPage executes its corresponding UI or business operation.
+ */
 export default function RiderMatchFoundPage() {
   const router = useRouter();
   const params = useLocalSearchParams<{ volunteer_name: string; volunteer_phone: string; volunteer_car: string; }>();

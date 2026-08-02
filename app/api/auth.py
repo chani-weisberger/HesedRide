@@ -18,13 +18,12 @@ router = APIRouter(prefix="/api", tags=["Authentication"])
 
 @router.post("/login")
 def login(request: LoginRequest, db: Session = Depends(get_db)):
+    """Authenticate a user and return a signed access token."""
     user = db.query(models.User).filter_by(id_number=request.id_number).first()
 
-    # 1. אם המשתמש בכלל לא קיים - נחזיר 404 כדי שה-Frontend ידע להעביר להרשמה
     if not user:
         raise HTTPException(status_code=404, detail="USER_NOT_FOUND")
 
-    # 2. אם הוא קיים אבל הסיסמה לא תואמת - נחזיר 401
     if user.password != request.password:
         raise HTTPException(status_code=401, detail="סיסמה שגויה. נסה שוב.")
 
@@ -40,8 +39,11 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
         "token_type": "bearer",
         "user": UserResponse.model_validate(user),
     }
+
+
 @router.post("/signup", response_model=UserResponse)
 def signup(request: SignupRequest, db: Session = Depends(get_db)):
+    """Register a new volunteer account."""
     existing_user = db.query(models.User).filter_by(id_number=request.id_number).first()
     if existing_user:
         raise HTTPException(status_code=409, detail="משתמש עם תעודת זהות זו כבר קיים במערכת")
@@ -49,9 +51,9 @@ def signup(request: SignupRequest, db: Session = Depends(get_db)):
     new_user = models.User(
         id_number=request.id_number,
         full_name=request.full_name,
-        password=request.password,
+        password=request.password
         phone_number=request.phone_number,
-        role="volunteer"  # default
+        role="volunteer"
     )
 
     db.add(new_user)

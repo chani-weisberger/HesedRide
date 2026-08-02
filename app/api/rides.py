@@ -14,6 +14,7 @@ router = APIRouter(prefix="/api/rides", tags=["Rides"])
 
 @router.post("/create", response_model=schemas.RideRequestResponse)
 def create_ride_request(ride_data: schemas.RideRequestCreate, db: Session = Depends(get_db)):
+    """Create a passenger ride request."""
     try:
         new_ride = models.RideRequest(**ride_data.model_dump())
         db.add(new_ride)
@@ -27,6 +28,7 @@ def create_ride_request(ride_data: schemas.RideRequestCreate, db: Session = Depe
 
 @router.post("/volunteer/create")
 def create_volunteer_ride(volunteer_data: schemas.VolunteerRideCreate, db: Session = Depends(get_db)):
+    """Create a volunteer ride and immediately try to match a passenger."""
     try:
         user = db.query(models.User).filter(models.User.id == volunteer_data.volunteer_id).first()
         if not user:
@@ -59,7 +61,6 @@ def create_volunteer_ride(volunteer_data: schemas.VolunteerRideCreate, db: Sessi
                 }
             }
 
-        # לא נמצאה התאמה
         new_volunteer_ride.status = "pending"
         db.commit()
 
@@ -78,12 +79,12 @@ def create_volunteer_ride(volunteer_data: schemas.VolunteerRideCreate, db: Sessi
 
 @router.api_route("/volunteer/cancel/{volunteer_ride_id}", methods=["PATCH", "POST"])
 def cancel_volunteer_ride(volunteer_ride_id: int, db: Session = Depends(get_db)):
+    """Cancel a volunteer ride and release any proposed passenger."""
     try:
         volunteer_ride = db.query(models.VolunteerRide).filter_by(id=volunteer_ride_id).first()
         if not volunteer_ride:
             raise HTTPException(status_code=404, detail="נסיעת המתנדב לא נמצאה")
 
-        # אם המתנדב מבטל, משחררים את הנוסע שלו חזרה לחיפוש
         if volunteer_ride.matched_request_id is not None:
             ride_request = db.query(models.RideRequest).filter_by(id=volunteer_ride.matched_request_id).first()
             if ride_request and ride_request.status == "proposed":
@@ -102,12 +103,12 @@ def cancel_volunteer_ride(volunteer_ride_id: int, db: Session = Depends(get_db))
 
 @router.api_route("/volunteer/resume/{volunteer_ride_id}", methods=["PATCH", "POST"])
 def resume_volunteer_ride(volunteer_ride_id: int, db: Session = Depends(get_db)):
+    """Reset a volunteer ride to pending and retry matching immediately."""
     try:
         volunteer_ride = db.query(models.VolunteerRide).filter_by(id=volunteer_ride_id).first()
         if not volunteer_ride:
             raise HTTPException(status_code=404, detail="נסיעת המתנדב לא נמצאה")
 
-        # שחרור נוסע קודם שעדיין תקוע ב-proposed (אם קיים)
         if volunteer_ride.matched_request_id is not None:
             old_request = db.query(models.RideRequest).filter_by(id=volunteer_ride.matched_request_id).first()
             if old_request and old_request.status == "proposed":
@@ -118,7 +119,6 @@ def resume_volunteer_ride(volunteer_ride_id: int, db: Session = Depends(get_db))
         volunteer_ride.proposed_at = None
         db.commit()
 
-        # חיפוש מיידי של נוסע חדש
         matched_passenger = find_best_match(volunteer_ride, db)
 
         if matched_passenger:
@@ -156,12 +156,12 @@ def resume_volunteer_ride(volunteer_ride_id: int, db: Session = Depends(get_db))
 
 @router.api_route("/request/cancel/{request_id}", methods=["PATCH", "POST"])
 def cancel_ride_request(request_id: int, db: Session = Depends(get_db)):
+    """Cancel a passenger request and release the assigned volunteer ride."""
     try:
         ride_request = db.query(models.RideRequest).filter_by(id=request_id).first()
         if not ride_request:
             raise HTTPException(status_code=404, detail="בקשת הנוסע לא נמצאה")
 
-        # משחררים את המתנדב שהיה תפוס על הנוסע הזה
         volunteer_ride = db.query(models.VolunteerRide).filter_by(matched_request_id=ride_request.id).order_by(models.VolunteerRide.id.desc()).first()
         if volunteer_ride:
             volunteer_ride.status = "pending"
@@ -178,6 +178,7 @@ def cancel_ride_request(request_id: int, db: Session = Depends(get_db)):
 
 @router.post("/confirm")
 def confirm_ride_match(confirm_data: schemas.RideConfirmRequest, user_type: str = None, db: Session = Depends(get_db)):
+    """Confirm a proposed volunteer-passenger match."""
     try:
         volunteer_ride = db.query(models.VolunteerRide).filter_by(id=confirm_data.volunteer_ride_id).first()
         ride_request = db.query(models.RideRequest).filter_by(id=confirm_data.ride_request_id).first()
@@ -185,7 +186,6 @@ def confirm_ride_match(confirm_data: schemas.RideConfirmRequest, user_type: str 
         if not volunteer_ride or not ride_request:
             raise HTTPException(status_code=404, detail="הנסיעה לא נמצאה")
 
-        # אם הנוסע ביטל, זורקים שגיאה כדי שהאפליקציה תדע להקפיץ מודאל "חזרה לחיפוש"
         if ride_request.status == "cancelled":
             raise HTTPException(status_code=400, detail="הנוסע ביטל את הבקשה")
 
@@ -210,13 +210,13 @@ def confirm_ride_match(confirm_data: schemas.RideConfirmRequest, user_type: str 
 
 @router.get("/{ride_id}/status")
 def get_ride_status(ride_id: int, ride_type: str, db: Session = Depends(get_db)):
+    """Return current status details for a volunteer ride or passenger request."""
     try:
         if ride_type == "volunteer":
             ride = db.query(models.VolunteerRide).filter_by(id=ride_id).first()
             if not ride:
                 raise HTTPException(status_code=404, detail="נסיעת המתנדב לא נמצאה")
 
-            # פג תוקף הצעה אחרי 3 דקות בלי אישור
             if ride.status == "proposed" and ride.proposed_at is not None:
                 proposed_at = ride.proposed_at
                 if proposed_at.tzinfo is None:

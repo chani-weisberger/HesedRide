@@ -7,6 +7,9 @@ interface AddressInputProps {
   onAddressSelect: (address: string, details?: any) => void;
 }
 
+/**
+ * AddressInput renders address autocomplete for web and native platforms.
+ */
 const AddressInput: React.FC<AddressInputProps> = ({
   placeholder,
   onAddressSelect,
@@ -37,7 +40,6 @@ const AddressInput: React.FC<AddressInputProps> = ({
   if (Platform.OS === 'web') {
     return (
       <View style={styles.container}>
-        {/* @ts-ignore */}
         <input
           ref={inputRef}
           placeholder={placeholder}

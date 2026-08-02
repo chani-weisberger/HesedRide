@@ -1,4 +1,3 @@
-// volunteer/immediate.tsx — טופס הזנת נסיעה עכשווית (צד מתנדב)
 import ScreenWrapper from '@/components/ScreenWrapper';
 import AddressInput from '@/components/AddressInput';
 import { colors } from '@/styles/colors';
@@ -14,6 +13,9 @@ import {
   Platform,
 } from 'react-native';
 
+/**
+ * ImmediateRideFormPage executes its corresponding UI or business operation.
+ */
 export default function ImmediateRideFormPage() {
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
@@ -25,6 +27,9 @@ export default function ImmediateRideFormPage() {
   const webOutline =
     Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null;
 
+  /**
+   * handleNext executes its corresponding UI or business operation.
+   */
   const handleNext = () => {
     const newErrors: { [key: string]: string } = {};
     if (!origin.trim()) newErrors.origin = 'חובה להזין נקודת מוצא';

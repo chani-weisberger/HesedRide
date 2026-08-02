@@ -1,8 +1,9 @@
-// _layout.tsx — הגדרת הניווט הכללי של האפליקציה
-// כל דף באפליקציה עובר דרך הקובץ הזה
 
 import { Stack } from 'expo-router';
 
+/**
+ * RootLayout executes its corresponding UI or business operation.
+ */
 export default function RootLayout() {
   return (
     <Stack

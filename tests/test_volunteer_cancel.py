@@ -2,6 +2,7 @@ from app.db import models
 
 
 def make_ride_request(db_session, status="proposed"):
+    """Create and persist a ride request test fixture."""
     ride_request = models.RideRequest(
         origin="Tel Aviv, Israel",
         destination="Haifa, Israel",
@@ -19,6 +20,7 @@ def make_ride_request(db_session, status="proposed"):
 
 
 def make_volunteer_ride(db_session, status="proposed", matched_request_id=None):
+    """Create and persist a volunteer ride test fixture."""
     volunteer_ride = models.VolunteerRide(
         source_location="Tel Aviv, Israel",
         destination_location="Haifa, Israel",
@@ -34,6 +36,7 @@ def make_volunteer_ride(db_session, status="proposed", matched_request_id=None):
 
 
 def test_cancel_with_match_resets_request_to_pending(client, db_session):
+    """Verify cancelling a matched volunteer ride resets the request to pending."""
     ride_request = make_ride_request(db_session, status="proposed")
     volunteer_ride = make_volunteer_ride(
         db_session, status="proposed", matched_request_id=ride_request.id
@@ -51,6 +54,7 @@ def test_cancel_with_match_resets_request_to_pending(client, db_session):
 
 
 def test_cancel_without_match(client, db_session):
+    """Verify cancelling an unmatched volunteer ride marks it as cancelled."""
     volunteer_ride = make_volunteer_ride(db_session, status="pending", matched_request_id=None)
 
     response = client.patch(f"/api/rides/volunteer/cancel/{volunteer_ride.id}")
@@ -63,12 +67,14 @@ def test_cancel_without_match(client, db_session):
 
 
 def test_cancel_nonexistent_volunteer_ride_returns_404(client):
+    """Verify cancelling a missing volunteer ride returns a not found response."""
     response = client.patch("/api/rides/volunteer/cancel/999999")
 
     assert response.status_code == 404
 
 
 def test_cancel_already_cancelled_is_idempotent(client, db_session):
+    """Verify cancelling an already cancelled ride remains idempotent."""
     volunteer_ride = make_volunteer_ride(db_session, status="cancelled", matched_request_id=None)
 
     response = client.patch(f"/api/rides/volunteer/cancel/{volunteer_ride.id}")
@@ -80,6 +86,7 @@ def test_cancel_already_cancelled_is_idempotent(client, db_session):
 
 
 def test_cancel_with_dangling_matched_request_id(client, db_session):
+    """Verify cancellation succeeds when matched request reference is missing."""
     volunteer_ride = make_volunteer_ride(db_session, status="proposed", matched_request_id=999999)
 
     response = client.patch(f"/api/rides/volunteer/cancel/{volunteer_ride.id}")

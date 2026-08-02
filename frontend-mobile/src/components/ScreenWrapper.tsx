@@ -12,6 +12,9 @@ type Props = {
   padded?: boolean;
 };
 
+/**
+ * ScreenWrapper executes its corresponding UI or business operation.
+ */
 export default function ScreenWrapper({
   children,
   scrollable = false,

@@ -17,6 +17,9 @@ import { colors } from '@/styles/colors';
 import { common } from '@/styles/common';
 import { typography } from '@/styles/typography';
 
+/**
+ * MatchFoundPage executes its corresponding UI or business operation.
+ */
 export default function MatchFoundPage() {
   const router = useRouter();
   const navigation = useNavigation();
@@ -43,6 +46,9 @@ export default function MatchFoundPage() {
 
   const isLeavingLegally = useRef(false);
 
+  /**
+   * cancelRideOnServer executes its corresponding UI or business operation.
+   */
   const cancelRideOnServer = async () => {
     if (!params.volunteer_ride_id || isConfirmed) return;
 
@@ -58,10 +64,12 @@ export default function MatchFoundPage() {
         );
       }
     } catch (error) {
-      console.log('Cancel error:', error);
     }
   };
 
+  /**
+   * handleAttemptLeave executes its corresponding UI or business operation.
+   */
   const handleAttemptLeave = () => {
     if (isLeavingLegally.current) return;
     cancelRideOnServer();
@@ -70,6 +78,9 @@ export default function MatchFoundPage() {
   };
 
   useEffect(() => {
+    /**
+     * onBackPress executes its corresponding UI or business operation.
+     */
     const onBackPress = () => {
       if (isLeavingLegally.current) return false;
       handleAttemptLeave();
@@ -87,6 +98,9 @@ export default function MatchFoundPage() {
       }
     });
 
+    /**
+     * handleWebBack executes its corresponding UI or business operation.
+     */
     const handleWebBack = () => {
       if (!isLeavingLegally.current) {
         window.history.pushState(null, '', window.location.href);
@@ -110,6 +124,9 @@ export default function MatchFoundPage() {
 
   useEffect(() => {
     if (Platform.OS === 'web') {
+      /**
+       * handleBeforeUnload executes its corresponding UI or business operation.
+       */
       const handleBeforeUnload = () => {
         if (!isLeavingLegally.current && !isConfirmed) {
           cancelRideOnServer();
@@ -141,7 +158,6 @@ export default function MatchFoundPage() {
           }, 10000);
         }
       } catch (error) {
-        console.log('Status check error:', error);
       }
     }, 5000);
 
@@ -171,6 +187,9 @@ export default function MatchFoundPage() {
     };
   }, [isCancelledByRiderModalVisible]);
 
+  /**
+   * handleVolunteerConfirm executes its corresponding UI or business operation.
+   */
   const handleVolunteerConfirm = async () => {
     setIsConfirming(true);
     try {
@@ -205,6 +224,9 @@ export default function MatchFoundPage() {
     }
   };
 
+  /**
+   * handleVolunteerCancelAndHome executes its corresponding UI or business operation.
+   */
   const handleVolunteerCancelAndHome = async () => {
     if (volunteerTimerRef.current) clearInterval(volunteerTimerRef.current);
     await cancelRideOnServer();
@@ -212,6 +234,9 @@ export default function MatchFoundPage() {
     router.replace('/volunteer/volunteer-type');
   };
 
+  /**
+   * handleVolunteerResumeSearch executes its corresponding UI or business operation.
+   */
   const handleVolunteerResumeSearch = async () => {
     if (volunteerTimerRef.current) clearInterval(volunteerTimerRef.current);
 
@@ -253,12 +278,18 @@ export default function MatchFoundPage() {
     }
   };
 
+  /**
+   * handleCancelAndGoHome executes its corresponding UI or business operation.
+   */
   const handleCancelAndGoHome = async () => {
     await cancelRideOnServer();
     isLeavingLegally.current = true;
     router.replace('/volunteer/volunteer-type');
   };
 
+  /**
+   * handleOpenNavigation executes its corresponding UI or business operation.
+   */
   const handleOpenNavigation = () => {
     if (navigationUrl) {
       if (Platform.OS === 'web') window.open(navigationUrl, '_blank');
@@ -266,6 +297,9 @@ export default function MatchFoundPage() {
     }
   };
 
+  /**
+   * InfoRow executes its corresponding UI or business operation.
+   */
   const InfoRow = ({ label, value }: { label: string; value: string }) => (
     <View style={styles.row}>
       <Text style={styles.rowValue}>{value}</Text>
