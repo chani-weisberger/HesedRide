@@ -51,7 +51,7 @@ def signup(request: SignupRequest, db: Session = Depends(get_db)):
     new_user = models.User(
         id_number=request.id_number,
         full_name=request.full_name,
-        ******
+        password=request.password
         phone_number=request.phone_number,
         role="volunteer"
     )
