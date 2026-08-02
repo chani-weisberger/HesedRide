@@ -1,4 +1,3 @@
-// volunteer/login.tsx — התחברות והרשמה למתנדב
 import { useState, useRef } from 'react';
 import {
   ActivityIndicator,
@@ -25,6 +24,9 @@ import { typography } from '@/styles/typography';
 import { registerVolunteer, loginVolunteer } from '@/services/authService';
 import * as SecureStore from 'expo-secure-store';
 
+/**
+ * isValidIsraeliId executes its corresponding UI or business operation.
+ */
 function isValidIsraeliId(id: string): boolean {
   const clean = id.trim();
   if (!/^\d{9}$/.test(clean)) return false;
@@ -37,6 +39,9 @@ function isValidIsraeliId(id: string): boolean {
   return sum % 10 === 0;
 }
 
+/**
+ * VolunteerAuthPage executes its corresponding UI or business operation.
+ */
 export default function VolunteerAuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
@@ -69,6 +74,9 @@ export default function VolunteerAuthPage() {
   const webOutline =
     Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null;
 
+  /**
+   * showCrossPlatformAlert executes its corresponding UI or business operation.
+   */
   const showCrossPlatformAlert = (title: string, message: string) => {
     if (Platform.OS === 'web') {
       window.alert(`${title}\n\n${message}`);
@@ -77,6 +85,9 @@ export default function VolunteerAuthPage() {
     }
   };
 
+  /**
+   * handleLogin executes its corresponding UI or business operation.
+   */
   const handleLogin = async () => {
     setLoginAttempted(true);
 
@@ -138,6 +149,9 @@ export default function VolunteerAuthPage() {
     }
   };
 
+  /**
+   * handleRegister executes its corresponding UI or business operation.
+   */
   const handleRegister = async () => {
     setSubmitAttempted(true);
 

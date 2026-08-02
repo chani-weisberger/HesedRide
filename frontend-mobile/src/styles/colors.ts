@@ -1,7 +1,5 @@
-// HesedRide — פלטת צבעים לפי המותג (טורקיז / תכלת / נייבי)
 
 export const colors = {
-  // מותג
   primaryNavy: '#0B3A5C',
   primaryBlue: '#0D9488',      // טורקיז ראשי (במקום כחול גנרי)
   primaryBlueDark: '#0F766E',
@@ -11,7 +9,6 @@ export const colors = {
   background: '#E8F8F6',
   backgroundAlt: '#F0FDFA',
 
-  // בסיס
   white: '#FFFFFF',
   cardBg: '#FFFFFF',
   inputBorder: '#CBD5E1',
@@ -19,7 +16,6 @@ export const colors = {
   textSecondary: '#64748B',
   textHint: '#94A3B8',
 
-  // סטטוסים
   urgent: '#EF4444',
   medium: '#F59E0B',
   low: '#10B981',

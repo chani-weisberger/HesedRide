@@ -1,4 +1,3 @@
-// ride-form.tsx — טופס בקשת נסיעה מיידית
 import { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
@@ -17,6 +16,9 @@ import { validateRideForm } from '@/utils/validation';
 import { saveRideDraft, loadRideDraft } from '@/utils/rideDraft';
 import AddressInput from '@/components/AddressInput';
 
+/**
+ * RideFormPage executes its corresponding UI or business operation.
+ */
 export default function RideFormPage() {
   const draft = loadRideDraft();
 
@@ -44,6 +46,9 @@ export default function RideFormPage() {
     });
   }, [passengerCount, patientName, patientPhone]);
 
+  /**
+   * handleNext executes its corresponding UI or business operation.
+   */
   const handleNext = () => {
     const newErrors = validateRideForm(
       origin,

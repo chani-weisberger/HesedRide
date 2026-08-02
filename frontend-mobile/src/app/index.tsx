@@ -4,6 +4,9 @@ import ScreenWrapper from '@/components/ScreenWrapper';
 import { colors } from '@/styles/colors';
 import { typography } from '@/styles/typography';
 
+/**
+ * WelcomePage executes its corresponding UI or business operation.
+ */
 export default function WelcomePage() {
   return (
     <ScreenWrapper padded={false}>

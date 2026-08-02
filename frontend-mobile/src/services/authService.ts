@@ -1,6 +1,7 @@
-// כתובת השרת — משנים רק כאן כשעוברים לשרת אמיתי
 const API_URL = 'http://127.0.0.1:8000/api';
-// אחראי רק על שליחת הבקשה וקבלת התשובה
+/**
+ * registerVolunteer submits a signup request for a new volunteer account.
+ */
 export const registerVolunteer = async (
   idNumber: string,
   fullName: string,
@@ -19,6 +20,9 @@ export const registerVolunteer = async (
   });
   return response;
 };
+/**
+ * loginVolunteer submits volunteer credentials and returns the auth response.
+ */
 export const loginVolunteer = async (
   idNumber: string,
   password: string

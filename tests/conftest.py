@@ -6,12 +6,13 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api import rides
-from app.db import models  # noqa: F401  registers tables on Base.metadata
+from app.db import models
 from app.db.database import Base, get_db
 
 
 @pytest.fixture()
 def db_session():
+    """Provide an isolated in-memory database session for each test."""
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -29,10 +30,12 @@ def db_session():
 
 @pytest.fixture()
 def client(db_session):
+    """Provide a FastAPI test client with database dependency override."""
     app = FastAPI()
     app.include_router(rides.router)
 
     def override_get_db():
+        """Yield the test session to dependency-injected routes."""
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db

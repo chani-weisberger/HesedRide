@@ -8,6 +8,9 @@ export type RideDraft = {
   patient_phone?: string;
 };
 
+/**
+ * saveRideDraft executes its corresponding UI or business operation.
+ */
 export function saveRideDraft(data: RideDraft) {
   if (Platform.OS !== 'web') return;
   try {
@@ -15,6 +18,9 @@ export function saveRideDraft(data: RideDraft) {
   } catch {}
 }
 
+/**
+ * loadRideDraft executes its corresponding UI or business operation.
+ */
 export function loadRideDraft(): RideDraft | null {
   if (Platform.OS !== 'web') return null;
   try {
@@ -25,6 +31,9 @@ export function loadRideDraft(): RideDraft | null {
   }
 }
 
+/**
+ * clearRideDraft executes its corresponding UI or business operation.
+ */
 export function clearRideDraft() {
   if (Platform.OS !== 'web') return;
   try {

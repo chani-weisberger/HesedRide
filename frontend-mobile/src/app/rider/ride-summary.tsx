@@ -15,6 +15,9 @@ import { typography } from '@/styles/typography';
 import { createRide, RideRequest } from '@/services/rideService';
 import { clearRideDraft } from '@/utils/rideDraft';
 
+/**
+ * RideSummaryPage executes its corresponding UI or business operation.
+ */
 export default function RideSummaryPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { rideData } = useLocalSearchParams<{ rideData: string }>();
@@ -42,6 +45,9 @@ export default function RideSummaryPage() {
     );
   }
 
+  /**
+   * handleSubmit executes its corresponding UI or business operation.
+   */
   const handleSubmit = async () => {
     setIsLoading(true);
     try {
@@ -64,6 +70,9 @@ export default function RideSummaryPage() {
     }
   };
 
+  /**
+   * SummaryRow executes its corresponding UI or business operation.
+   */
   const SummaryRow = ({ label, value }: { label: string; value: string }) => (
     <View style={styles.row}>
       <Text style={styles.rowValue}>{value}</Text>

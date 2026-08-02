@@ -12,6 +12,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 
+/**
+ * VolunteerGlobalRideSummaryPage executes its corresponding UI or business operation.
+ */
 export default function VolunteerGlobalRideSummaryPage() {
   const { rideData, typeTitle } = useLocalSearchParams<{
     rideData: string;
@@ -49,6 +52,9 @@ export default function VolunteerGlobalRideSummaryPage() {
 
   const currentTypeTitle = typeTitle || 'נסיעה עכשווית';
 
+  /**
+   * handleConfirm executes its corresponding UI or business operation.
+   */
   const handleConfirm = () => {
     router.replace({
       pathname: '/volunteer/waiting-for-rider',
@@ -59,6 +65,9 @@ export default function VolunteerGlobalRideSummaryPage() {
     });
   };
 
+  /**
+   * SummaryRow executes its corresponding UI or business operation.
+   */
   const SummaryRow = ({ label, value }: { label: string; value: string }) => (
     <View style={styles.row}>
       <Text style={styles.rowValue}>{value}</Text>

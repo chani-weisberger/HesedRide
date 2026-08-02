@@ -16,12 +16,18 @@ import {
 
 const SEARCH_TIMEOUT_SEC = 30 * 60;
 
+/**
+ * formatTime executes its corresponding UI or business operation.
+ */
 function formatTime(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+/**
+ * RiderFindingVolunteerPage executes its corresponding UI or business operation.
+ */
 export default function RiderFindingVolunteerPage() {
   const params = useLocalSearchParams();
   const navigation = useNavigation();
@@ -42,6 +48,9 @@ export default function RiderFindingVolunteerPage() {
     params.ride_request_id || params.id || params.requestId || params.request_id;
   const storageKey = id ? `rider_search_start_${id}` : null;
 
+  /**
+   * clearSearchStart executes its corresponding UI or business operation.
+   */
   const clearSearchStart = () => {
     if (Platform.OS === 'web' && storageKey) {
       localStorage.removeItem(storageKey);
@@ -49,6 +58,9 @@ export default function RiderFindingVolunteerPage() {
   };
 
   useEffect(() => {
+    /**
+     * onBackPress executes its corresponding UI or business operation.
+     */
     const onBackPress = () => {
       if (isLeavingLegally.current) return false;
       setIsModalVisible(true);
@@ -66,6 +78,9 @@ export default function RiderFindingVolunteerPage() {
       }
     });
 
+    /**
+     * handleWebBack executes its corresponding UI or business operation.
+     */
     const handleWebBack = () => {
       if (!isLeavingLegally.current) {
         window.history.pushState(null, '', window.location.href);
@@ -132,6 +147,9 @@ export default function RiderFindingVolunteerPage() {
     };
   }, [id, timerReady, showTimeoutModal]);
 
+  /**
+   * handleSearchTimeout executes its corresponding UI or business operation.
+   */
   const handleSearchTimeout = async () => {
     if (didAutoCancelRef.current || !id) return;
     didAutoCancelRef.current = true;
@@ -146,7 +164,6 @@ export default function RiderFindingVolunteerPage() {
         },
       });
     } catch (e) {
-      console.log('Auto-cancel on timeout failed:', e);
     }
 
     setShowTimeoutModal(true);
@@ -158,6 +175,9 @@ export default function RiderFindingVolunteerPage() {
       return;
     }
 
+    /**
+     * checkRideStatus executes its corresponding UI or business operation.
+     */
     const checkRideStatus = async () => {
       if (didAutoCancelRef.current) return;
 
@@ -186,7 +206,6 @@ export default function RiderFindingVolunteerPage() {
           }
         }
       } catch (error) {
-        console.error('שגיאה בפוללינג:', error);
       }
     };
 
@@ -218,16 +237,25 @@ export default function RiderFindingVolunteerPage() {
     };
   }, [isModalVisible]);
 
+  /**
+   * handleOpenCancelModal executes its corresponding UI or business operation.
+   */
   const handleOpenCancelModal = () => {
     if (!id) return;
     setIsModalVisible(true);
   };
 
+  /**
+   * handleDismissModal executes its corresponding UI or business operation.
+   */
   const handleDismissModal = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     setIsModalVisible(false);
   };
 
+  /**
+   * handleConfirmCancel executes its corresponding UI or business operation.
+   */
   const handleConfirmCancel = async () => {
     if (timerRef.current) clearInterval(timerRef.current);
     try {
@@ -263,6 +291,9 @@ export default function RiderFindingVolunteerPage() {
     }
   };
 
+  /**
+   * handleTimeoutGoHome executes its corresponding UI or business operation.
+   */
   const handleTimeoutGoHome = () => {
     isLeavingLegally.current = true;
     router.replace('/rider/ride-type');

@@ -26,6 +26,7 @@ app.include_router(rides.router)
 
 @app.get("/")
 def start_server():
+    """Return a lightweight health message for the root endpoint."""
     return {"message": "The server of HesedRide is on air!"}
 
 if __name__ == "__main__":
