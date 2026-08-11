@@ -1,33 +1,29 @@
-# HesedRide 🚗
+# HesedRide
 
-מערכת לניהול ושידוך נסיעות בין מתנדבים לנזקקים.
+Real-time ride matching between volunteers and medical patients, with route-detour constraints and a careful ride-status lifecycle.
 
-## 💻 Tech Stack
-* **Backend:** FastAPI (Python)
-* **Frontend:** React Native (Expo)
-* **Database:** PostgreSQL (Supabase)
+**My role:** Project lead & backend developer (team of 4)
 
-## 🔐 משתני סביבה
-צרי קובץ `.env` בשורש הפרויקט:
-```
-DATABASE_URL=your_supabase_connection_string
-JWT_SECRET=your_secret_key
-GOOGLE_MAPS_API_KEY=your_google_maps_key
-```
+## Highlights
+- Matching algorithm using travel times and grace-time / detour limits
+- Status flow: pending → proposed → confirmed / cancelled (timeouts, cancel, resume)
+- Auth and ride APIs; integration with a React Native (Expo) client
 
-## 🚀 הרצת הפרויקט
+## Tech stack
+- Backend: Python, FastAPI, SQLAlchemy, PostgreSQL (Supabase), JWT
+- Frontend: React Native (Expo)
+- Maps: Google Maps API
+
+## Run locally
 
 ### Backend
-1. הפעילי סביבה וירטואלית: `venv\Scripts\activate`
-2. התקיני תלויות: `pip install -r requirements.txt`
-3. הריצי שרת: `uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload`
-4. API זמין בכתובת: `http://localhost:8000/docs`
+Set DATABASE_URL, JWT_SECRET, GOOGLE_MAPS_API_KEY in a .env file, then:
+
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 
 ### Frontend
-1. כנסי לתיקייה: `cd frontend-mobile`
-2. הריצי: `npx expo start --web`
+cd frontend-mobile
+npx expo start --web
 
-## 📋 סטטוס פיתוח
-- [x] הרשמה והתחברות
-- [ ] דשבורד נסיעות
-- [ ] מסך בחירת נסיעה
+## Academic context
+Application Development Workshop project — grade 100.
